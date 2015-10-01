@@ -14,28 +14,33 @@ var projectRootDir = path.normalize(path.join(__dirname, '..', '..', '..', '..')
 
 module.exports = function makeNodeTree(destinationPath) {
   // list of npm packages that this build will create
-  var outputPackages = ['angular2', 'benchpress', 'rtts_assert'];
+  var outputPackages = ['angular2', 'benchpress'];
 
   var modulesTree = new Funnel('modules', {
-    include: ['angular2/**', 'benchpress/**', 'rtts_assert/**', '**/e2e_test/**'],
+    include: ['angular2/**', 'benchpress/**', '**/e2e_test/**'],
     exclude: [
       // the following code and tests are not compatible with CJS/node environment
+      'angular2/test/animate/**',
       'angular2/test/core/zone/**',
       'angular2/test/test_lib/fake_async_spec.ts',
-      'angular2/test/render/xhr_impl_spec.ts',
-      'angular2/test/forms/**'
+      'angular2/test/core/render/xhr_impl_spec.ts',
+      'angular2/test/core/forms/**',
+      'angular2/test/tools/tools_spec.ts',
+      'angular1_router/**'
     ]
   });
 
   var typescriptTree = compileWithTypescript(modulesTree, {
     allowNonTsExtensions: false,
     emitDecoratorMetadata: true,
-    declaration: true,
+    experimentalDecorators: true,
+    declaration: false,
     mapRoot: '', /* force sourcemaps to use relative path */
-    module: 'commonjs',
+    module: 'CommonJS',
+    moduleResolution: 1 /* classic */,
     noEmitOnError: true,
     rootDir: '.',
-    rootFilePaths: ['angular2/traceur-runtime.d.ts', 'angular2/globals.d.ts'],
+    rootFilePaths: ['angular2/manual_typings/globals.d.ts'],
     sourceMap: true,
     sourceRoot: '.',
     target: 'ES5'
@@ -58,6 +63,7 @@ module.exports = function makeNodeTree(destinationPath) {
     homepage: BASE_PACKAGE_JSON.homepage,
     bugs: BASE_PACKAGE_JSON.bugs,
     license: BASE_PACKAGE_JSON.license,
+    repository: BASE_PACKAGE_JSON.repository,
     contributors: BASE_PACKAGE_JSON.contributors,
     dependencies: BASE_PACKAGE_JSON.dependencies,
     devDependencies: BASE_PACKAGE_JSON.devDependencies,
@@ -82,13 +88,13 @@ module.exports = function makeNodeTree(destinationPath) {
     files: ['**/test/**/*_spec.js'],
     patterns: [
       {
-        match: /$/,
-        replacement: function(_, relativePath) {
-          return "\r\n main(); \n\r" +
-                 "var parse5Adapter = require('angular2/src/dom/parse5_adapter'); " +
-                 "parse5Adapter.Parse5DomAdapter.makeCurrent();";
+        match: /^/,
+        replacement: function() {
+          return `var parse5Adapter = require('angular2/src/core/dom/parse5_adapter');\n\r
+                  parse5Adapter.Parse5DomAdapter.makeCurrent();`;
         }
-      }
+      },
+      {match: /$/, replacement: function(_, relativePath) { return "\r\n main(); \n\r"; }}
     ]
   });
 

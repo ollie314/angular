@@ -9,6 +9,7 @@ module.exports = new Package('angular.io', [basePackage])
 
 .factory(require('./services/renderMarkdown'))
 .processor(require('./processors/addJadeDataDocsProcessor'))
+.processor(require('./processors/filterUnwantedDecorators'))
 
 // Configure rendering
 .config(function(templateFinder, templateEngine) {
@@ -29,6 +30,14 @@ module.exports = new Package('angular.io', [basePackage])
 })
 
 
+.config(function(filterUnwantedDecorators, log) {
+  log.level = 'info';
+  filterUnwantedDecorators.decoratorsToIgnore = [
+    'CONST',
+    'IMPLEMENTS',
+    'ABSTRACT'
+  ];
+})
 
 
 .config(function(computeIdsProcessor, computePathsProcessor, EXPORT_DOC_TYPES) {
@@ -54,4 +63,14 @@ module.exports = new Package('angular.io', [basePackage])
 
 .config(function(getLinkInfo) {
   getLinkInfo.relativeLinks = true;
+})
+
+
+.config(function(templateEngine, getInjectables) {
+  templateEngine.filters = templateEngine.filters.concat(getInjectables([
+    require('./rendering/trimBlankLines'),
+    require('./rendering/toId')
+  ]));
 });
+
+

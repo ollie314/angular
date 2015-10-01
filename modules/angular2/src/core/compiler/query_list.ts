@@ -1,44 +1,55 @@
-import {List, ListWrapper, MapWrapper} from 'angular2/src/facade/collection';
-import {IQueryList} from './interface_query';
+import {ListWrapper, MapWrapper} from 'angular2/src/core/facade/collection';
+import {getSymbolIterator} from 'angular2/src/core/facade/lang';
+import {Observable, EventEmitter} from 'angular2/src/core/facade/async';
+
 
 /**
- * Injectable Objects that contains a live list of child directives in the light Dom of a directive.
- * The directives are kept in depth-first pre-order traversal of the DOM.
+ * An unmodifiable list of items that Angular keeps up to date when the state
+ * of the application changes.
  *
- * In the future this class will implement an Observable interface.
- * For now it uses a plain list of observable callbacks.
+ * The type of object that {@link QueryMetadata} and {@link ViewQueryMetadata} provide.
+ *
+ * Implements an iterable interface, therefore it can be used in both ES6
+ * javascript `for (var i of items)` loops as well as in Angular templates with
+ * `*ng-for="#i of myList"`.
+ *
+ * Changes can be observed by subscribing to the changes `Observable`.
+ *
+ * NOTE: In the future this class will implement an `Observable` interface.
+ *
+ * ### Example ([live demo](http://plnkr.co/edit/RX8sJnQYl9FWuSCWme5z?p=preview))
+ * ```javascript
+ * @Component({...})
+ * class Container {
+ *   constructor(@Query(Item) items: QueryList<Item>) {
+ *     items.changes.subscribe(_ => console.log(items.length));
+ *   }
+ * }
+ * ```
  */
-export class QueryList<T> implements IQueryList<T> {
-  protected _results: List < T >= [];
-  protected _callbacks: List < () => void >= [];
-  protected _dirty: boolean = false;
+export class QueryList<T> {
+  private _results: Array<T> = [];
+  private _emitter = new EventEmitter();
 
-  reset(newList: List<T>): void {
-    this._results = newList;
-    this._dirty = true;
-  }
-
-  add(obj: T): void {
-    this._results.push(obj);
-    this._dirty = true;
-  }
-
-  fireCallbacks(): void {
-    if (this._dirty) {
-      ListWrapper.forEach(this._callbacks, (c) => c());
-      this._dirty = false;
-    }
-  }
-
-  onChange(callback: () => void): void { this._callbacks.push(callback); }
-
-  removeCallback(callback: () => void): void { ListWrapper.remove(this._callbacks, callback); }
-
+  get changes(): Observable { return this._emitter; }
   get length(): number { return this._results.length; }
   get first(): T { return ListWrapper.first(this._results); }
   get last(): T { return ListWrapper.last(this._results); }
 
-  map<U>(fn: (T) => U): U[] { return this._results.map(fn); }
+  /**
+   * returns a new list with the passsed in function applied to each element.
+   */
+  map<U>(fn: (item: T) => U): U[] { return this._results.map(fn); }
 
-  [Symbol.iterator](): any { return this._results[Symbol.iterator](); }
+  [getSymbolIterator()](): any { return this._results[getSymbolIterator()](); }
+
+  toString(): string { return this._results.toString(); }
+
+  /**
+   * @private
+   */
+  reset(res: T[]): void { this._results = res; }
+
+  /** @private */
+  notifyOnChanges(): void { this._emitter.next(this); }
 }

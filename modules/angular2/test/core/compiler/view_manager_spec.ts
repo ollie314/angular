@@ -11,12 +11,10 @@ import {
   inject,
   beforeEachBindings,
   it,
-  xit,
-  SpyObject,
-  proxy
+  xit
 } from 'angular2/test_lib';
-import {Injector, bind} from 'angular2/di';
-import {IMPLEMENTS} from 'angular2/src/facade/lang';
+import {SpyRenderer, SpyAppViewPool, SpyAppViewListener} from '../spies';
+import {Injector, bind} from 'angular2/core';
 
 import {
   AppProtoView,
@@ -35,11 +33,9 @@ import {
   ViewType,
   RenderProtoViewMergeMapping,
   RenderViewWithFragments
-} from 'angular2/src/render/api';
+} from 'angular2/src/core/render/api';
 import {AppViewManager} from 'angular2/src/core/compiler/view_manager';
 import {AppViewManagerUtils} from 'angular2/src/core/compiler/view_manager_utils';
-import {AppViewListener} from 'angular2/src/core/compiler/view_listener';
-import {AppViewPool} from 'angular2/src/core/compiler/view_pool';
 
 import {
   createHostPv,
@@ -115,21 +111,23 @@ export function main() {
           () => { hostProtoView = createHostPv([createNestedElBinder(createComponentPv())]); });
 
       it('should create the view', () => {
-        var rootView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+        var rootView =
+            internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
         expect(rootView.proto).toBe(hostProtoView);
         expect(viewListener.spy('viewCreated')).toHaveBeenCalledWith(rootView);
       });
 
       it('should hydrate the view', () => {
         var injector = Injector.resolveAndCreate([]);
-        var rootView =
-            internalView(manager.createRootHostView(wrapPv(hostProtoView), null, injector));
+        var rootView = internalView(
+            <ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, injector));
         expect(rootView.hydrated()).toBe(true);
         expect(renderer.spy('hydrateView')).toHaveBeenCalledWith(rootView.render);
       });
 
       it('should create and set the render view using the component selector', () => {
-        var rootView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+        var rootView =
+            internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
         expect(renderer.spy('createRootHostView'))
             .toHaveBeenCalledWith(hostProtoView.mergeMapping.renderProtoViewRef,
                                   hostProtoView.mergeMapping.renderFragmentCount, 'someComponent');
@@ -139,14 +137,15 @@ export function main() {
 
       it('should allow to override the selector', () => {
         var selector = 'someOtherSelector';
-        internalView(manager.createRootHostView(wrapPv(hostProtoView), selector, null));
+        internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), selector, null));
         expect(renderer.spy('createRootHostView'))
             .toHaveBeenCalledWith(hostProtoView.mergeMapping.renderProtoViewRef,
                                   hostProtoView.mergeMapping.renderFragmentCount, selector);
       });
 
       it('should set the event dispatcher', () => {
-        var rootView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+        var rootView =
+            internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
         expect(renderer.spy('setEventDispatcher')).toHaveBeenCalledWith(rootView.render, rootView);
       });
 
@@ -159,7 +158,8 @@ export function main() {
       var hostRenderViewRef: RenderViewRef;
       beforeEach(() => {
         hostProtoView = createHostPv([createNestedElBinder(createComponentPv())]);
-        hostView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+        hostView =
+            internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
         hostRenderViewRef = hostView.render;
       });
 
@@ -193,7 +193,8 @@ export function main() {
           childProtoView = createEmbeddedPv();
           var hostProtoView = createHostPv(
               [createNestedElBinder(createComponentPv([createNestedElBinder(childProtoView)]))]);
-          hostView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+          hostView =
+              internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
           vcRef = hostView.elementRefs[1];
           templateRef = new TemplateRef(hostView.elementRefs[1]);
           resetSpies();
@@ -307,8 +308,8 @@ export function main() {
 
           it('should always create a new view and not use the embedded view', () => {
             var newHostPv = createHostPv([createNestedElBinder(createComponentPv())]);
-            var newHostView =
-                internalView(manager.createHostViewInContainer(vcRef, 0, wrapPv(newHostPv), null));
+            var newHostView = internalView(
+                <ViewRef>manager.createHostViewInContainer(vcRef, 0, wrapPv(newHostPv), null));
             expect(newHostView.proto).toBe(newHostPv);
             expect(newHostView).not.toBe(hostView.views[2]);
             expect(viewListener.spy('viewCreated')).toHaveBeenCalledWith(newHostView);
@@ -334,7 +335,8 @@ export function main() {
           childProtoView = createEmbeddedPv();
           var hostProtoView = createHostPv(
               [createNestedElBinder(createComponentPv([createNestedElBinder(childProtoView)]))]);
-          hostView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+          hostView =
+              internalView(<ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
           vcRef = hostView.elementRefs[1];
           templateRef = new TemplateRef(hostView.elementRefs[1]);
           firstChildView =
@@ -405,7 +407,8 @@ export function main() {
             childProtoView = createEmbeddedPv();
             var hostProtoView = createHostPv(
                 [createNestedElBinder(createComponentPv([createNestedElBinder(childProtoView)]))]);
-            hostView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+            hostView = internalView(
+                <ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
             vcRef = hostView.elementRefs[1];
             templateRef = new TemplateRef(hostView.elementRefs[1]);
             firstChildView =
@@ -457,7 +460,8 @@ export function main() {
             ]);
             var hostProtoView = createHostPv(
                 [createNestedElBinder(createComponentPv([createNestedElBinder(childProtoView)]))]);
-            hostView = internalView(manager.createRootHostView(wrapPv(hostProtoView), null, null));
+            hostView = internalView(
+                <ViewRef>manager.createRootHostView(wrapPv(hostProtoView), null, null));
             vcRef = hostView.elementRefs[1];
             templateRef = new TemplateRef(hostView.elementRefs[1]);
             nestedChildViews = [];
@@ -497,25 +501,4 @@ export function main() {
 
                                       });
   });
-}
-
-@proxy
-@IMPLEMENTS(Renderer)
-class SpyRenderer extends SpyObject {
-  constructor() { super(Renderer); }
-  noSuchMethod(m) { return super.noSuchMethod(m) }
-}
-
-@proxy
-@IMPLEMENTS(AppViewPool)
-class SpyAppViewPool extends SpyObject {
-  constructor() { super(AppViewPool); }
-  noSuchMethod(m) { return super.noSuchMethod(m) }
-}
-
-@proxy
-@IMPLEMENTS(AppViewListener)
-class SpyAppViewListener extends SpyObject {
-  constructor() { super(AppViewListener); }
-  noSuchMethod(m) { return super.noSuchMethod(m) }
 }

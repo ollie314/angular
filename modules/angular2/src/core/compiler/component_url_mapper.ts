@@ -1,9 +1,10 @@
-import {Injectable} from 'angular2/di';
-import {Type, isPresent} from 'angular2/src/facade/lang';
-import {Map, MapWrapper} from 'angular2/src/facade/collection';
+import {Injectable} from 'angular2/src/core/di';
+import {Type, isPresent} from 'angular2/src/core/facade/lang';
+import {Map, MapWrapper} from 'angular2/src/core/facade/collection';
+import {reflector} from 'angular2/src/core/reflection/reflection';
 
 /**
- * Resolve a {@link Type} from a {@link Component} into a URL.
+ * Resolve a `Type` from a {@link ComponentMetadata} into a URL.
  *
  * This interface can be overridden by the application developer to create custom behavior.
  *
@@ -17,16 +18,15 @@ export class ComponentUrlMapper {
    * - an absolute URL,
    * - a path relative to the application
    */
-  getUrl(component: Type): string { return './'; }
+  getUrl(component: Type): string {
+    return reflector.isReflectionEnabled() ? reflector.importUri(component) : './';
+  }
 }
 
 export class RuntimeComponentUrlMapper extends ComponentUrlMapper {
-  _componentUrls: Map<Type, string>;
+  _componentUrls = new Map<Type, string>();
 
-  constructor() {
-    super();
-    this._componentUrls = new Map();
-  }
+  constructor() { super(); }
 
   setComponentUrl(component: Type, url: string) { this._componentUrls.set(component, url); }
 

@@ -1,7 +1,2 @@
-importScripts("traceur-runtime.js",
-    "es6-module-loader-sans-promises.src.js",
-    "system.src.js",
-    "extension-register.js",
-    "extension-cjs.js",
-    "Reflect.js",
-    "runtime_paths.js");
+importScripts("es6-shim.js", "zone-microtask.js", "long-stack-trace-zone.js", "system.src.js",
+              "Reflect.js");

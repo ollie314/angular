@@ -1,18 +1,21 @@
-import {AsyncRoute, Route, Redirect, RouteDefinition} from './route_config_decorator';
+import {AsyncRoute, AuxRoute, Route, Redirect, RouteDefinition} from './route_config_decorator';
 import {ComponentDefinition} from './route_definition';
-import {Type, BaseException} from 'angular2/src/facade/lang';
+import {isType, Type} from 'angular2/src/core/facade/lang';
+import {BaseException, WrappedException} from 'angular2/src/core/facade/exceptions';
+
 
 /**
  * Given a JS Object that represents... returns a corresponding Route, AsyncRoute, or Redirect
  */
 export function normalizeRouteConfig(config: RouteDefinition): RouteDefinition {
-  if (config instanceof Route || config instanceof Redirect || config instanceof AsyncRoute) {
+  if (config instanceof Route || config instanceof Redirect || config instanceof AsyncRoute ||
+      config instanceof AuxRoute) {
     return <RouteDefinition>config;
   }
 
   if ((!config.component) == (!config.redirectTo)) {
     throw new BaseException(
-        `Route config should contain exactly one 'component', or 'redirectTo' property`);
+        `Route config should contain exactly one "component", "loader", or "redirectTo" property.`);
   }
   if (config.component) {
     if (typeof config.component == 'object') {
@@ -28,7 +31,7 @@ export function normalizeRouteConfig(config: RouteDefinition): RouteDefinition {
             {path: config.path, loader: componentDefinitionObject.loader, as: config.as});
       } else {
         throw new BaseException(
-            `Invalid component type '${componentDefinitionObject.type}'. Valid types are "constructor" and "loader".`);
+            `Invalid component type "${componentDefinitionObject.type}". Valid types are "constructor" and "loader".`);
       }
     }
     return new Route(<{
@@ -43,4 +46,10 @@ export function normalizeRouteConfig(config: RouteDefinition): RouteDefinition {
   }
 
   return config;
+}
+
+export function assertComponentExists(component: Type, path: string): void {
+  if (!isType(component)) {
+    throw new BaseException(`Component for route "${path}" is not defined, or is not a class.`);
+  }
 }

@@ -1,23 +1,29 @@
-import {BaseException, isPresent} from 'angular2/src/facade/lang';
+import {BaseException} from 'angular2/src/core/facade/exceptions';
 import {ViewRef} from './view_ref';
-import {RenderViewRef, RenderElementRef, Renderer} from 'angular2/src/render/api';
+import {RenderViewRef, RenderElementRef, Renderer} from 'angular2/src/core/render/api';
 
 /**
- * Reference to the element.
+ * Represents a location in a View that has an injection, change-detection and render context
+ * associated with it.
  *
- * Represents an opaque reference to the underlying element. The element is a DOM ELement in
- * a Browser, but may represent other types on other rendering platforms. In the browser the
- * `ElementRef` can be sent to the web-worker. Web Workers can not have references to the
- * DOM Elements.
+ * An `ElementRef` is created for each element in the Template that contains a Directive, Component
+ * or data-binding.
+ *
+ * An `ElementRef` is backed by a render-specific element. In the browser, this is usually a DOM
+ * element.
  */
 export class ElementRef implements RenderElementRef {
   /**
-   * Reference to the {@link ViewRef} where the `ElementRef` is inside of.
+   * @private
+   *
+   * Reference to the {@link ViewRef} that this `ElementRef` is part of.
    */
   parentView: ViewRef;
 
 
   /**
+   * @private
+   *
    * Index of the element inside the {@link ViewRef}.
    *
    * This is used internally by the Angular framework to locate elements.
@@ -25,12 +31,17 @@ export class ElementRef implements RenderElementRef {
   boundElementIndex: number;
 
   /**
-   * Index of the element inside the {@link RenderViewRef}.
+   * @private
+   *
+   * Index of the element inside the `RenderViewRef`.
    *
    * This is used internally by the Angular framework to locate elements.
    */
   renderBoundElementIndex: number;
 
+  /**
+   * @private
+   */
   constructor(parentView: ViewRef, boundElementIndex: number, renderBoundElementIndex: number,
               private _renderer: Renderer) {
     this.parentView = parentView;
@@ -39,7 +50,7 @@ export class ElementRef implements RenderElementRef {
   }
 
   /**
-   *
+   * @private
    */
   get renderView(): RenderViewRef { return this.parentView.render; }
 
@@ -49,15 +60,22 @@ export class ElementRef implements RenderElementRef {
   set renderView(viewRef: RenderViewRef) { throw new BaseException('Abstract setter'); }
 
   /**
-   * Returns the native Element implementation.
+   * The underlying native element or `null` if direct access to native elements is not supported
+   * (e.g. when the application runs in a web worker).
    *
-   * In the browser this represents the DOM Element.
-   *
-   * The `nativeElement` can be used as an escape hatch when direct DOM manipulation is needed. Use
-   * this with caution, as it creates tight coupling between your application and the Browser, which
-   * will not work in WebWorkers.
-   *
-   * NOTE: This method will return null in the webworker scenario!
+   * <div class="callout is-critical">
+   *   <header>Use with caution</header>
+   *   <p>
+   *    Use this api as the last resort when direct access to DOM is needed. Use templating and
+   *    data-binding provided by Angular instead.
+   *   </p>
+   *   <p>
+   *    Relying on direct DOM access creates tight coupling between your application and rendering
+   *    layers which will make it impossible to separate the two and deploy your application into a
+   *    web worker.
+   *   </p>
+   *   <!-- TODO: add info about custom renderers that should be used instead -->
+   * </div>
    */
   get nativeElement(): any { return this._renderer.getNativeElementSync(this); }
 }
