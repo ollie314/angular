@@ -1,10 +1,9 @@
 import {CONST_EXPR} from 'angular2/src/core/facade/lang';
 import {EventEmitter, ObservableWrapper} from 'angular2/src/core/facade/async';
-import {StringMap} from 'angular2/src/core/facade/collection';
 import {OnChanges, OnDestroy} from 'angular2/lifecycle_hooks';
 import {SimpleChange} from 'angular2/src/core/change_detection';
 import {Query, Directive} from 'angular2/src/core/metadata';
-import {forwardRef, Host, SkipSelf, Binding, Inject, Optional} from 'angular2/src/core/di';
+import {forwardRef, Host, SkipSelf, Provider, Inject, Optional} from 'angular2/src/core/di';
 
 import {ControlContainer} from './control_container';
 import {NgControl} from './ng_control';
@@ -15,7 +14,7 @@ import {Validators, NG_VALIDATORS} from '../validators';
 
 
 const controlNameBinding =
-    CONST_EXPR(new Binding(NgControl, {toAlias: forwardRef(() => NgControlName)}));
+    CONST_EXPR(new Provider(NgControl, {useExisting: forwardRef(() => NgControlName)}));
 
 /**
  * Creates and binds a control with a specified name to a DOM element.
@@ -29,8 +28,8 @@ const controlNameBinding =
  * changes.
  *
  *  ```
- * @Component({selector: "login-comp"})
- * @View({
+ * @Component({
+ *      selector: "login-comp",
  *      directives: [FORM_DIRECTIVES],
  *      template: `
  *        <form #f="form" (submit)='onLogIn(f.value)'>
@@ -51,8 +50,8 @@ const controlNameBinding =
  * We can also use ng-model to bind a domain model to the form.
  *
  *  ```
- * @Component({selector: "login-comp"})
- * @View({
+ * @Component({
+ *      selector: "login-comp",
  *      directives: [FORM_DIRECTIVES],
  *      template: `
  *        <form (submit)='onLogIn()'>
@@ -76,16 +75,18 @@ const controlNameBinding =
   selector: '[ng-control]',
   bindings: [controlNameBinding],
   inputs: ['name: ngControl', 'model: ngModel'],
-  outputs: ['update: ngModel'],
+  outputs: ['update: ngModelChange'],
   exportAs: 'form'
 })
 export class NgControlName extends NgControl implements OnChanges,
     OnDestroy {
+  /** @internal */
   _parent: ControlContainer;
   update = new EventEmitter();
   model: any;
   viewModel: any;
   validators: Function[];
+  /** @internal */
   _added = false;
 
   constructor(@Host() @SkipSelf() parent: ControlContainer,
@@ -97,7 +98,7 @@ export class NgControlName extends NgControl implements OnChanges,
     this.valueAccessor = selectValueAccessor(this, valueAccessors);
   }
 
-  onChanges(changes: StringMap<string, SimpleChange>) {
+  onChanges(changes: {[key: string]: SimpleChange}) {
     if (!this._added) {
       this.formDirective.addControl(this);
       this._added = true;

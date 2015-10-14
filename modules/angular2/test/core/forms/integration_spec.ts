@@ -16,7 +16,7 @@ import {
   iit,
   xit,
   browserDetection
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
 import {DOM} from 'angular2/src/core/dom/dom_adapter';
 import {
@@ -31,6 +31,7 @@ import {
   Validators,
 } from 'angular2/core';
 import {By} from 'angular2/src/core/debug';
+import {ListWrapper} from 'angular2/src/core/facade/collection';
 
 export function main() {
   describe("integration tests", () => {
@@ -348,23 +349,43 @@ export function main() {
     describe("validations", () => {
       it("should use validators defined in html",
          inject([TestComponentBuilder, AsyncTestCompleter], (tcb: TestComponentBuilder, async) => {
-           var form = new ControlGroup({"login": new Control("aa")});
+           var form = new ControlGroup(
+               {"login": new Control(""), "min": new Control(""), "max": new Control("")});
 
            var t = `<div [ng-form-model]="form">
                   <input type="text" ng-control="login" required>
+                  <input type="text" ng-control="min" minlength="3">
+                  <input type="text" ng-control="max" maxlength="3">
                  </div>`;
 
            tcb.overrideTemplate(MyComp, t).createAsync(MyComp).then((rootTC) => {
              rootTC.debugElement.componentInstance.form = form;
              rootTC.detectChanges();
+
+             var required = rootTC.debugElement.query(By.css("[required]"));
+             var minLength = rootTC.debugElement.query(By.css("[minlength]"));
+             var maxLength = rootTC.debugElement.query(By.css("[maxlength]"));
+
+             required.nativeElement.value = "";
+             minLength.nativeElement.value = "1";
+             maxLength.nativeElement.value = "1234";
+             dispatchEvent(required.nativeElement, "change");
+             dispatchEvent(minLength.nativeElement, "change");
+             dispatchEvent(maxLength.nativeElement, "change");
+
+             expect(form.hasError("required", ["login"])).toEqual(true);
+             expect(form.hasError("minlength", ["min"])).toEqual(true);
+             expect(form.hasError("maxlength", ["max"])).toEqual(true);
+
+             required.nativeElement.value = "1";
+             minLength.nativeElement.value = "123";
+             maxLength.nativeElement.value = "123";
+             dispatchEvent(required.nativeElement, "change");
+             dispatchEvent(minLength.nativeElement, "change");
+             dispatchEvent(maxLength.nativeElement, "change");
+
              expect(form.valid).toEqual(true);
 
-             var input = rootTC.debugElement.query(By.css("input"));
-
-             input.nativeElement.value = "";
-             dispatchEvent(input.nativeElement, "change");
-
-             expect(form.valid).toEqual(false);
              async.done();
            });
          }));
@@ -660,21 +681,18 @@ export function main() {
              rootTC.detectChanges();
 
              var input = rootTC.debugElement.query(By.css("input")).nativeElement;
-             expect(DOM.classList(input))
-                 .toEqual(['ng-binding', 'ng-invalid', 'ng-pristine', 'ng-untouched']);
+             expect(sortedClassList(input)).toEqual(['ng-invalid', 'ng-pristine', 'ng-untouched']);
 
              dispatchEvent(input, "blur");
              rootTC.detectChanges();
 
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-invalid", "ng-pristine", "ng-touched"]);
+             expect(sortedClassList(input)).toEqual(["ng-invalid", "ng-pristine", "ng-touched"]);
 
              input.value = "updatedValue";
              dispatchEvent(input, "change");
              rootTC.detectChanges();
 
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-touched", "ng-dirty", "ng-valid"]);
+             expect(sortedClassList(input)).toEqual(["ng-dirty", "ng-touched", "ng-valid"]);
              async.done();
            });
          }));
@@ -690,21 +708,18 @@ export function main() {
              rootTC.detectChanges();
 
              var input = rootTC.debugElement.query(By.css("input")).nativeElement;
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-invalid", "ng-pristine", "ng-untouched"]);
+             expect(sortedClassList(input)).toEqual(["ng-invalid", "ng-pristine", "ng-untouched"]);
 
              dispatchEvent(input, "blur");
              rootTC.detectChanges();
 
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-invalid", "ng-pristine", "ng-touched"]);
+             expect(sortedClassList(input)).toEqual(["ng-invalid", "ng-pristine", "ng-touched"]);
 
              input.value = "updatedValue";
              dispatchEvent(input, "change");
              rootTC.detectChanges();
 
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-touched", "ng-dirty", "ng-valid"]);
+             expect(sortedClassList(input)).toEqual(["ng-dirty", "ng-touched", "ng-valid"]);
              async.done();
            });
          }));
@@ -718,21 +733,18 @@ export function main() {
              rootTC.detectChanges();
 
              var input = rootTC.debugElement.query(By.css("input")).nativeElement;
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-invalid", "ng-pristine", "ng-untouched"]);
+             expect(sortedClassList(input)).toEqual(["ng-invalid", "ng-pristine", "ng-untouched"]);
 
              dispatchEvent(input, "blur");
              rootTC.detectChanges();
 
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-invalid", "ng-pristine", "ng-touched"]);
+             expect(sortedClassList(input)).toEqual(["ng-invalid", "ng-pristine", "ng-touched"]);
 
              input.value = "updatedValue";
              dispatchEvent(input, "change");
              rootTC.detectChanges();
 
-             expect(DOM.classList(input))
-                 .toEqual(["ng-binding", "ng-touched", "ng-dirty", "ng-valid"]);
+             expect(sortedClassList(input)).toEqual(["ng-dirty", "ng-touched", "ng-valid"]);
              async.done();
            });
          }));
@@ -844,4 +856,10 @@ class MyComp {
   form: any;
   name: string;
   data: any;
+}
+
+function sortedClassList(el) {
+  var l = DOM.classList(el);
+  ListWrapper.sort(l);
+  return l;
 }

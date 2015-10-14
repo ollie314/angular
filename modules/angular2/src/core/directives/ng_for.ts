@@ -5,7 +5,7 @@ import {
   IterableDiffer,
   IterableDiffers
 } from 'angular2/src/core/change_detection';
-import {ViewContainerRef, TemplateRef, ViewRef} from 'angular2/src/core/compiler';
+import {ViewContainerRef, TemplateRef, ViewRef} from 'angular2/src/core/linker';
 import {isPresent, isBlank} from 'angular2/src/core/facade/lang';
 
 /**
@@ -39,8 +39,9 @@ import {isPresent, isBlank} from 'angular2/src/core/facade/lang';
  * - `<li template="ng-for #item of items; #i = index">...</li>`
  * - `<template ng-for #item [ng-for-of]="items" #i="index"><li>...</li></template>`
  */
-@Directive({selector: '[ng-for][ng-for-of]', inputs: ['ngForOf']})
+@Directive({selector: '[ng-for][ng-for-of]', inputs: ['ngForOf', 'ngForTemplate']})
 export class NgFor implements DoCheck {
+  /** @internal */
   _ngForOf: any;
   private _differ: IterableDiffer;
 
@@ -53,6 +54,8 @@ export class NgFor implements DoCheck {
       this._differ = this._iterableDiffers.find(value).create(this._cdr);
     }
   }
+
+  set ngForTemplate(value: TemplateRef) { this._templateRef = value; }
 
   doCheck() {
     if (isPresent(this._differ)) {

@@ -38,17 +38,9 @@ class NgDepsVisitor extends RecursiveAstVisitor<Object> {
   }
 
   void _createModel(String libraryUri) {
-    _model = new NgDepsModel()..libraryUri = libraryUri;
-
-    // We need to import & export the original file.
-    var origDartFile = path.basename(processedFile.path);
-    _model.imports.add(new ImportModel()..uri = origDartFile);
-    _model.exports.add(new ExportModel()..uri = origDartFile);
-
-    // Used to register reflective information.
-    _model.imports.add(new ImportModel()
-      ..uri = REFLECTOR_IMPORT
-      ..prefix = REFLECTOR_PREFIX);
+    _model = new NgDepsModel()
+      ..libraryUri = libraryUri
+      ..sourceFile = path.basename(processedFile.path);
   }
 
   @override
@@ -139,16 +131,23 @@ abstract class NgDepsWriterMixin
       buffer.writeln('library ${model.libraryUri}${DEPS_EXTENSION};\n');
     }
 
-    // We do not support `partUris`, so skip outputting them.
-    for (var importModel in model.imports) {
-      // Ignore deferred imports here so as to not load the deferred libraries
-      // code in the current library causing much of the code to not be
-      // deferred. Instead `DeferredRewriter` will rewrite the code as to load
-      // `ng_deps` in a deferred way.
-      if (importModel.isDeferred) return;
+    // We need to import & export the source file.
+    writeImportModel(new ImportModel()..uri = model.sourceFile);
 
-      writeImportModel(importModel);
-    }
+    // Used to register reflective information.
+    writeImportModel(new ImportModel()
+      ..uri = REFLECTOR_IMPORT
+      ..prefix = REFLECTOR_PREFIX);
+
+    // We do not support `partUris`, so skip outputting them.
+
+    // Ignore deferred imports here so as to not load the deferred libraries
+    // code in the current library causing much of the code to not be
+    // deferred. Instead `DeferredRewriter` will rewrite the code as to load
+    // `ng_deps` in a deferred way.
+    model.imports.where((i) => !i.isDeferred).forEach(writeImportModel);
+
+    writeExportModel(new ExportModel()..uri = model.sourceFile);
     model.exports.forEach(writeExportModel);
 
     buffer

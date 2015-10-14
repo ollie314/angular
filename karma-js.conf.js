@@ -22,9 +22,9 @@ module.exports = function(config) {
       'node_modules/zone.js/dist/jasmine-patch.js',
 
       // Including systemjs because it defines `__eval`, which produces correct stack traces.
-      'modules/angular2/src/test_lib/shims_for_IE.js',
+      'modules/angular2/src/testing/shims_for_IE.js',
       'node_modules/systemjs/dist/system.src.js',
-      {pattern: 'node_modules/@reactivex/rxjs/dist/cjs/**', included: false, watched: false, served: true},
+      {pattern: 'node_modules/@reactivex/rxjs/**', included: false, watched: false, served: true},
       'node_modules/reflect-metadata/Reflect.js',
       'tools/build/file2modulename.js',
       'test-main.js',
@@ -53,12 +53,13 @@ module.exports = function(config) {
     port: 9876
   });
 
-  if (process.env.TRAVIS) {
+  if (process.env.TRAVIS && process.env.MODE === 'saucelabs') {
     config.sauceLabs.build = 'TRAVIS #' + process.env.TRAVIS_BUILD_NUMBER + ' (' + process.env.TRAVIS_BUILD_ID + ')';
     config.sauceLabs.tunnelIdentifier = process.env.TRAVIS_JOB_NUMBER;
 
     // TODO(mlaval): remove once SauceLabs supports websockets.
     // This speeds up the capturing a bit, as browsers don't even try to use websocket.
-    config.transports = ['xhr-polling'];
+    console.log('>>>> setting socket.io transport to polling <<<<');
+    config.transports = ['polling'];
   }
 };

@@ -6,13 +6,14 @@ import {
   bindAction,
   windowProfile,
   windowProfileEnd
-} from 'angular2/src/test_lib/benchmark_util';
+} from 'angular2/src/testing/benchmark_util';
 import {bootstrap} from 'angular2/bootstrap';
 import {
   Component,
   Directive,
   View,
   bind,
+  provide,
   NgFor,
   NgSwitch,
   NgSwitchWhen,
@@ -20,7 +21,7 @@ import {
   LifeCycle
 } from 'angular2/core';
 import {BrowserDomAdapter} from 'angular2/src/core/dom/browser_adapter';
-import {APP_VIEW_POOL_CAPACITY} from 'angular2/src/core/compiler/view_pool';
+import {APP_VIEW_POOL_CAPACITY} from 'angular2/src/core/linker/view_pool';
 
 import {ListWrapper} from 'angular2/src/core/facade/collection';
 
@@ -34,11 +35,10 @@ export const LARGETABLE_COLS = 'LargetableComponent.cols';
 function _createBindings() {
   var viewCacheCapacity = getStringParameter('viewcache') == 'true' ? 10000 : 1;
   return [
-    bind(BENCHMARK_TYPE)
-        .toValue(getStringParameter('benchmarkType')),
-    bind(LARGETABLE_ROWS).toValue(getIntParameter('rows')),
-    bind(LARGETABLE_COLS).toValue(getIntParameter('columns')),
-    bind(APP_VIEW_POOL_CAPACITY).toValue(viewCacheCapacity)
+    provide(BENCHMARK_TYPE, {useValue: getStringParameter('benchmarkType')}),
+    provide(LARGETABLE_ROWS, {useValue: getIntParameter('rows')}),
+    provide(LARGETABLE_COLS, {useValue: getIntParameter('columns')}),
+    provide(APP_VIEW_POOL_CAPACITY, {useValue: viewCacheCapacity})
   ];
 }
 

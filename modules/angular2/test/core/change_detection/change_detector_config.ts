@@ -53,7 +53,7 @@ function _convertLocalsToVariableBindings(locals: Locals): any[] {
   var variableBindings = [];
   var loc = locals;
   while (isPresent(loc) && isPresent(loc.current)) {
-    MapWrapper.forEach(loc.current, (v, k) => variableBindings.push(k));
+    loc.current.forEach((v, k) => variableBindings.push(k));
     loc = loc.parent;
   }
   return variableBindings;
@@ -156,7 +156,7 @@ export function getAllDefinitions(): TestDefinition[] {
     "onPushObserveDirective",
     "updateElementProduction"
   ]);
-  return ListWrapper.map(allDefs, (id) => getDefinition(id));
+  return allDefs.map(getDefinition);
 }
 
 class _ExpressionWithLocals {
@@ -176,7 +176,7 @@ class _ExpressionWithLocals {
    * Map from test id to _ExpressionWithLocals.
    * Tests in this map define an expression and local values which those expressions refer to.
    */
-  static availableDefinitions: StringMap<string, _ExpressionWithLocals> = {
+  static availableDefinitions: {[key: string]: _ExpressionWithLocals} = {
     'valueFromLocals': new _ExpressionWithLocals(
         'key', new Locals(null, MapWrapper.createFromPairs([['key', 'value']]))),
     'functionFromLocals': new _ExpressionWithLocals(
@@ -241,7 +241,7 @@ class _ExpressionWithMode {
    * Map from test id to _ExpressionWithMode.
    * Definitions in this map define conditions which allow testing various change detector modes.
    */
-  static availableDefinitions: StringMap<string, _ExpressionWithMode> = {
+  static availableDefinitions: {[key: string]: _ExpressionWithMode} = {
     'emptyUsingDefaultStrategy':
         new _ExpressionWithMode(ChangeDetectionStrategy.Default, false, false),
     'emptyUsingOnPushStrategy':
@@ -316,7 +316,7 @@ class _DirectiveUpdating {
    * Definitions in this map define definitions which allow testing directive updating.
    */
   static availableDefinitions:
-      StringMap<string, _DirectiveUpdating> = {
+      {[key: string]: _DirectiveUpdating} = {
         'directNoDispatcher': new _DirectiveUpdating(
             [_DirectiveUpdating.updateA('42', _DirectiveUpdating.basicRecords[0])],
             [_DirectiveUpdating.basicRecords[0]]),

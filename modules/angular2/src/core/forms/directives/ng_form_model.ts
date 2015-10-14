@@ -4,7 +4,7 @@ import {ObservableWrapper, EventEmitter} from 'angular2/src/core/facade/async';
 
 import {OnChanges} from 'angular2/lifecycle_hooks';
 import {Directive} from 'angular2/src/core/metadata';
-import {forwardRef, Binding} from 'angular2/src/core/di';
+import {forwardRef, Provider} from 'angular2/src/core/di';
 import {NgControl} from './ng_control';
 import {NgControlGroup} from './ng_control_group';
 import {ControlContainer} from './control_container';
@@ -12,8 +12,8 @@ import {Form} from './form_interface';
 import {Control, ControlGroup} from '../model';
 import {setUpControl} from './shared';
 
-const formDirectiveBinding =
-    CONST_EXPR(new Binding(ControlContainer, {toAlias: forwardRef(() => NgFormModel)}));
+const formDirectiveProvider =
+    CONST_EXPR(new Provider(ControlContainer, {useExisting: forwardRef(() => NgFormModel)}));
 
 /**
  * Binds an existing control group to a DOM element.
@@ -25,9 +25,7 @@ const formDirectiveBinding =
  *
  *  ```typescript
  * @Component({
- *   selector: 'my-app'
- * })
- * @View({
+ *   selector: 'my-app',
  *   template: `
  *     <div>
  *       <h2>NgFormModel Example</h2>
@@ -60,8 +58,8 @@ const formDirectiveBinding =
  * We can also use ng-model to bind a domain model to the form.
  *
  *  ```typescript
- * @Component({selector: "login-comp"})
- * @View({
+ * @Component({
+ *      selector: "login-comp",
  *      directives: [FORM_DIRECTIVES],
  *      template: `
  *        <form [ng-form-model]='loginForm'>
@@ -91,7 +89,7 @@ const formDirectiveBinding =
  */
 @Directive({
   selector: '[ng-form-model]',
-  bindings: [formDirectiveBinding],
+  bindings: [formDirectiveProvider],
   inputs: ['form: ng-form-model'],
   host: {'(submit)': 'onSubmit()'},
   outputs: ['ngSubmit'],
@@ -140,8 +138,9 @@ export class NgFormModel extends ControlContainer implements Form,
     return false;
   }
 
+  /** @internal */
   _updateDomValue() {
-    ListWrapper.forEach(this.directives, dir => {
+    this.directives.forEach(dir => {
       var ctrl: any = this.form.find(dir.path);
       dir.valueAccessor.writeValue(ctrl.value);
     });

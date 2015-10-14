@@ -8,7 +8,7 @@ import {
   Host,
   NG_VALIDATORS,
   forwardRef,
-  Binding,
+  Provider,
   FORM_DIRECTIVES,
   NgControl,
   Validators,
@@ -35,7 +35,7 @@ class CheckoutModel {
 /**
  * Custom validator.
  */
-function creditCardValidator(c): StringMap<string, boolean> {
+function creditCardValidator(c): {[key: string]: boolean} {
   if (isPresent(c.value) && RegExpWrapper.test(/^\d{16}$/g, c.value)) {
     return null;
   } else {
@@ -44,7 +44,7 @@ function creditCardValidator(c): StringMap<string, boolean> {
 }
 
 const creditCardValidatorBinding =
-    CONST_EXPR(new Binding(NG_VALIDATORS, {toValue: creditCardValidator, multi: true}));
+    CONST_EXPR(new Provider(NG_VALIDATORS, {useValue: creditCardValidator, multi: true}));
 
 @Directive({selector: '[credit-card]', bindings: [creditCardValidatorBinding]})
 class CreditCardValidator {

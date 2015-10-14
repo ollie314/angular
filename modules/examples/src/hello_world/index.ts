@@ -1,5 +1,5 @@
 import {bootstrap} from 'angular2/bootstrap';
-import {ElementRef, Component, Directive, View, Injectable} from 'angular2/core';
+import {ElementRef, Component, Directive, Injectable} from 'angular2/core';
 import {Renderer} from 'angular2/render';
 
 export function main() {
@@ -42,10 +42,7 @@ class RedDec {
   selector: 'hello-app',
   // These are services that would be created if a class in the component's
   // template tries to inject them.
-  viewBindings: [GreetingService]
-})
-// The template for the component.
-@View({
+  viewProviders: [GreetingService],
   // Expressions in the template (like {{greeting}}) are evaluated in the
   // context of the HelloCmp class below.
   template: `<div class="greeting">{{greeting}} <span red>world</span>!</div>

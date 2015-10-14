@@ -1,4 +1,4 @@
-import {verifyNoBrowserErrors} from 'angular2/src/test_lib/e2e_util';
+import {verifyNoBrowserErrors} from 'angular2/src/testing/e2e_util';
 
 describe('md-dialog', function() {
   var url = 'examples/src/material/dialog/index.html';
@@ -11,7 +11,6 @@ describe('md-dialog', function() {
     openButton.click();
 
     var dialog = element(by.css('.md-dialog'));
-    browser.sleep(500);
 
     expect(dialog.isPresent()).toEqual(true);
 

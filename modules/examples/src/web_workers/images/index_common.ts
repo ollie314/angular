@@ -4,7 +4,7 @@ import {EventListener} from 'angular2/src/core/facade/browser';
 import {FileReader, Uint8ArrayWrapper} from './file_api';
 import {TimerWrapper} from 'angular2/src/core/facade/async';
 
-@Component({selector: 'image-demo', viewBindings: [BitmapService]})
+@Component({selector: 'image-demo', viewProviders: [BitmapService]})
 @View({templateUrl: 'image_demo.html', directives: [NgFor, NgIf, FORM_DIRECTIVES]})
 export class ImageDemo {
   images = [];
@@ -39,7 +39,7 @@ export class ImageDemo {
     }
   }
 
-  private _filter(i: number): Function {
+  private _filter(i: number): (...args: any[]) => void {
     return () => {
       var imageData = this._bitmapService.convertToImageData(this.images[i].buffer);
       imageData = this._bitmapService.applySepia(imageData);

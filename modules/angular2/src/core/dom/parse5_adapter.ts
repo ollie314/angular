@@ -1,11 +1,9 @@
-var parse5 = require('parse5');
+var parse5 = require('parse5/index');
 var parser = new parse5.Parser(parse5.TreeAdapters.htmlparser2);
 var serializer = new parse5.Serializer(parse5.TreeAdapters.htmlparser2);
 var treeAdapter = parser.treeAdapter;
 
-var cssParse = require('css').parse;
-
-var url = require('url');
+var cssParse = require('css/lib/parse/index');
 
 import {MapWrapper, ListWrapper, StringMapWrapper} from 'angular2/src/core/facade/collection';
 import {DomAdapter, setRootDomAdapter} from './dom_adapter';
@@ -17,9 +15,9 @@ import {
   DateWrapper
 } from 'angular2/src/core/facade/lang';
 import {BaseException, WrappedException} from 'angular2/src/core/facade/exceptions';
-import {SelectorMatcher, CssSelector} from 'angular2/src/core/render/dom/compiler/selector';
+import {SelectorMatcher, CssSelector} from 'angular2/src/core/compiler/selector';
 
-var _attrToPropMap = {
+var _attrToPropMap: {[key: string]: string} = {
   'class': 'className',
   'innerHtml': 'innerHTML',
   'readonly': 'readOnly',
@@ -117,9 +115,9 @@ export class Parse5DomAdapter extends DomAdapter {
     return result;
   }
   on(el, evt, listener) {
-    var listenersMap: StringMap<any, any> = el._eventListenersMap;
+    var listenersMap: {[k: /*any*/ string]: any} = el._eventListenersMap;
     if (isBlank(listenersMap)) {
-      var listenersMap: StringMap<any, any> = StringMapWrapper.create();
+      var listenersMap: {[k: /*any*/ string]: any} = StringMapWrapper.create();
       el._eventListenersMap = listenersMap;
     }
     var listeners = StringMapWrapper.get(listenersMap, evt);
@@ -224,9 +222,7 @@ export class Parse5DomAdapter extends DomAdapter {
     this.remove(node);
     treeAdapter.insertBefore(el.parent, node, el);
   }
-  insertAllBefore(el, nodes) {
-    ListWrapper.forEach(nodes, (n) => { this.insertBefore(el, n); });
-  }
+  insertAllBefore(el, nodes) { nodes.forEach(n => this.insertBefore(el, n)); }
   insertAfter(el, node) {
     if (el.nextSibling) {
       this.insertBefore(el.nextSibling, node);
@@ -358,7 +354,7 @@ export class Parse5DomAdapter extends DomAdapter {
     var index = classList.indexOf(classname);
     if (index == -1) {
       classList.push(classname);
-      element.attribs["class"] = element.className = ListWrapper.join(classList, " ");
+      element.attribs["class"] = element.className = classList.join(" ");
     }
   }
   removeClass(element, classname: string) {
@@ -366,12 +362,13 @@ export class Parse5DomAdapter extends DomAdapter {
     var index = classList.indexOf(classname);
     if (index > -1) {
       classList.splice(index, 1);
-      element.attribs["class"] = element.className = ListWrapper.join(classList, " ");
+      element.attribs["class"] = element.className = classList.join(" ");
     }
   }
   hasClass(element, classname: string): boolean {
     return ListWrapper.contains(this.classList(element), classname);
   }
+  /** @internal */
   _readStyleAttribute(element) {
     var styleMap = {};
     var attributes = element.attribs;
@@ -387,6 +384,7 @@ export class Parse5DomAdapter extends DomAdapter {
     }
     return styleMap;
   }
+  /** @internal */
   _writeStyleAttribute(element, styleMap) {
     var styleAttrValue = "";
     for (var key in styleMap) {
@@ -487,14 +485,15 @@ export class Parse5DomAdapter extends DomAdapter {
     if (href == null) {
       el.href = baseUrl;
     } else {
-      el.href = url.resolve(baseUrl, href);
+      el.href = baseUrl + '/../' + href;
     }
   }
+  /** @internal */
   _buildRules(parsedRules, css?) {
     var rules = [];
     for (var i = 0; i < parsedRules.length; i++) {
       var parsedRule = parsedRules[i];
-      var rule: StringMap<string, any> = StringMapWrapper.create();
+      var rule: {[key: string]: any} = StringMapWrapper.create();
       StringMapWrapper.set(rule, "cssText", css);
       StringMapWrapper.set(rule, "style", {content: "", cssText: ""});
       if (parsedRule.type == "rule") {
@@ -545,6 +544,12 @@ export class Parse5DomAdapter extends DomAdapter {
     } else if (target == "body") {
       return this.defaultDoc().body;
     }
+  }
+  supportsUnprefixedCssAnimation(): boolean {
+    // Currently during offline code transformation we do not know
+    // what browsers we are targetting. To play it safe, we assume
+    // unprefixed animations are not supported.
+    return false;
   }
   getBaseHref(): string { throw 'not implemented'; }
   resetBaseElement(): void { throw 'not implemented'; }

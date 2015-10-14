@@ -8,27 +8,32 @@ import './metadata/view.dart';
 
 export './metadata/di.dart';
 export './metadata/directives.dart';
-export './metadata/view.dart';
+export './metadata/view.dart' hide VIEW_ENCAPSULATION_VALUES;
 
 /**
  * See: [DirectiveMetadata] for docs.
  */
 class Directive extends DirectiveMetadata {
   const Directive({String selector, List<String> inputs,
-  List<String> outputs, Map<String, String> host,
-  List bindings, String exportAs, String moduleId,
-  Map<String, dynamic> queries,
-  bool compileChildren: true})
+  List<String> outputs,
+  @deprecated List<String> properties,
+  @deprecated List<String> events,
+  Map<String, String> host,
+  @deprecated List bindings,
+  List providers, String exportAs, String moduleId,
+  Map<String, dynamic> queries})
     : super(
     selector: selector,
     inputs: inputs,
     outputs: outputs,
+    properties: properties,
+    events: events,
     host: host,
     bindings: bindings,
+    providers: providers,
     exportAs: exportAs,
     moduleId: moduleId,
-    queries: queries,
-    compileChildren: compileChildren);
+    queries: queries);
 }
 
 /**
@@ -36,22 +41,41 @@ class Directive extends DirectiveMetadata {
  */
 class Component extends ComponentMetadata {
   const Component({String selector, List<String> inputs,
-  List<String> outputs, Map<String, String> host,
-  List bindings, String exportAs, String moduleId,
+  List<String> outputs,
+  @deprecated List<String> properties,
+  @deprecated List<String> events,
+  Map<String, String> host,
+  @deprecated List bindings, List providers, String exportAs, String moduleId,
   Map<String, dynamic> queries,
-  bool compileChildren, List viewBindings, ChangeDetectionStrategy changeDetection})
+  @deprecated List viewBindings,
+  List viewProviders, ChangeDetectionStrategy changeDetection,
+  String templateUrl, String template, dynamic directives,
+  dynamic pipes, ViewEncapsulation encapsulation, List<String> styles,
+  List<String> styleUrls
+  })
     : super(
     selector: selector,
     inputs: inputs,
     outputs: outputs,
+    properties: properties,
+    events: events,
     host: host,
     bindings: bindings,
+    providers: providers,
     exportAs: exportAs,
     moduleId: moduleId,
-    compileChildren: compileChildren,
     viewBindings: viewBindings,
+    viewProviders: viewProviders,
     queries: queries,
-    changeDetection: changeDetection);
+    changeDetection: changeDetection,
+    templateUrl: templateUrl,
+    template: template,
+    directives: directives,
+    pipes: pipes,
+    encapsulation: encapsulation,
+    styles: styles,
+    styleUrls: styleUrls
+    );
 }
 
 /**

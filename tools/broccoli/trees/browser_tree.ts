@@ -13,9 +13,6 @@ import mergeTrees from '../broccoli-merge-trees';
 import replace from '../broccoli-replace';
 
 
-var projectRootDir = path.normalize(path.join(__dirname, '..', '..', '..', '..'));
-
-
 const kServedPaths = [
   // Relative (to /modules) paths to benchmark directories
   'benchmarks/src',
@@ -83,7 +80,8 @@ module.exports = function makeBrowserTree(options, destinationPath) {
     destDir: '/'
   });
 
-  var rxJs = new Funnel('node_modules/@reactivex', {include: ['**/**'], destDir: '/@reactivex'});
+  var clientModules = new Funnel(
+      'node_modules', {include: ['@reactivex/**/**', 'parse5/**/**', 'css/**/**'], destDir: '/'});
 
   var es5ModulesTree = new Funnel('modules', {
     include: ['**/**'],
@@ -92,9 +90,18 @@ module.exports = function makeBrowserTree(options, destinationPath) {
   });
 
   var scriptPathPatternReplacement = {
-    match: '@@FILENAME_NO_EXT',
+    match: '@@PATH',
     replacement: function(replacement, relativePath) {
-      return relativePath.replace(/\.\w+$/, '').replace(/\\/g, '/');
+      var parts = relativePath.replace(/\\/g, '/').split('/');
+      return parts.splice(0, parts.length - 1).join('/');
+    }
+  };
+
+  var scriptFilePatternReplacement = {
+    match: '@@FILENAME',
+    replacement: function(replacement, relativePath) {
+      var parts = relativePath.replace(/\\/g, '/').split('/');
+      return parts[parts.length - 1].replace('html', 'js');
     }
   };
 
@@ -111,26 +118,30 @@ module.exports = function makeBrowserTree(options, destinationPath) {
     mapRoot: '',  // force sourcemaps to use relative path
     noEmitOnError: false,
     rootDir: '.',
+    rootFilePaths: ['angular2/manual_typings/globals-es6.d.ts'],
     sourceMap: true,
     sourceRoot: '.',
     target: 'ES6'
   });
 
   // Use TypeScript to transpile the *.ts files to ES5
-  var es5Tree = compileWithTypescript(es5ModulesTree, {
+  var typescriptOptions = {
     allowNonTsExtensions: false,
-    declaration: false,
+    declaration: true,
+    stripInternal: true,
     emitDecoratorMetadata: true,
     experimentalDecorators: true,
     mapRoot: '',  // force sourcemaps to use relative path
     module: 'CommonJS',
     moduleResolution: 1 /* classic */,
-    noEmitOnError: false,
+    noEmitOnError: true,
     rootDir: '.',
+    rootFilePaths: ['angular2/manual_typings/globals.d.ts'],
     sourceMap: true,
     sourceRoot: '.',
     target: 'ES5'
-  });
+  };
+  var es5Tree = compileWithTypescript(es5ModulesTree, typescriptOptions);
 
   // Now we add a few more files to the es6 tree that the es5 tree should not see
   var extras = new Funnel('tools/build', {files: ['es5build.js'], destDir: 'angular2'});
@@ -166,12 +177,14 @@ module.exports = function makeBrowserTree(options, destinationPath) {
     return funnels;
   }
 
-  var htmlTree = new Funnel(modulesTree, {include: ['*/src/**/*.html'], destDir: '/'});
+  var htmlTree = new Funnel(modulesTree,
+                            {include: ['*/src/**/*.html', '**/examples/**/*.html'], destDir: '/'});
   htmlTree = replace(htmlTree, {
     files: ['examples*/**/*.html'],
     patterns: [
       {match: /\$SCRIPTS\$/, replacement: htmlReplace('SCRIPTS')},
-      scriptPathPatternReplacement
+      scriptPathPatternReplacement,
+      scriptFilePatternReplacement
     ]
   });
 
@@ -180,7 +193,8 @@ module.exports = function makeBrowserTree(options, destinationPath) {
     files: ['benchmarks/**'],
     patterns: [
       {match: /\$SCRIPTS\$/, replacement: htmlReplace('SCRIPTS_benchmarks')},
-      scriptPathPatternReplacement
+      scriptPathPatternReplacement,
+      scriptFilePatternReplacement
     ]
   });
 
@@ -188,8 +202,16 @@ module.exports = function makeBrowserTree(options, destinationPath) {
     files: ['benchmarks_external/**'],
     patterns: [
       {match: /\$SCRIPTS\$/, replacement: htmlReplace('SCRIPTS_benchmarks_external')},
-      scriptPathPatternReplacement
+      scriptPathPatternReplacement,
+      scriptFilePatternReplacement
     ]
+  });
+
+  // We need to replace the regular angular bundle with the web-worker bundle
+  // for web-worker e2e tests.
+  htmlTree = replace(htmlTree, {
+    files: ['examples*/**/web_workers/**/*.html'],
+    patterns: [{match: "/bundle/angular2.dev.js", replacement: "/bundle/web_worker/ui.dev.js"}]
   });
 
   var assetsTree =
@@ -209,8 +231,28 @@ module.exports = function makeBrowserTree(options, destinationPath) {
 
   htmlTree = mergeTrees([htmlTree, scripts, polymer, react]);
 
-  es5Tree = mergeTrees([es5Tree, htmlTree, assetsTree, rxJs]);
-  es6Tree = mergeTrees([es6Tree, htmlTree, assetsTree, rxJs]);
+  var typingsTree = new Funnel(
+      'modules',
+      {include: ['angular2/typings/**/*.d.ts', 'angular2/manual_typings/*.d.ts'], destDir: '/'});
+
+  // Add a line to the end of our top-level .d.ts file.
+  // This HACK for transitive typings is a workaround for
+  // https://github.com/Microsoft/TypeScript/issues/5097
+  //
+  // This allows users to get our top-level dependencies like es6-shim.d.ts
+  // to appear when they compile against angular2.
+  //
+  // This carries the risk that the user brings their own copy of that file
+  // (or any other symbols exported here) and they will get a compiler error
+  // because of the duplicate definitions.
+  // TODO(alexeagle): remove this when typescript releases a fix
+  es5Tree = replace(es5Tree, {
+    files: ['angular2/angular2.d.ts'],
+    patterns: [{match: /$/, replacement: 'import "./manual_typings/globals.d.ts";\n'}]
+  });
+
+  es5Tree = mergeTrees([es5Tree, htmlTree, assetsTree, clientModules, typingsTree]);
+  es6Tree = mergeTrees([es6Tree, htmlTree, assetsTree, clientModules, typingsTree]);
 
   var mergedTree = mergeTrees([stew.mv(es6Tree, '/es6'), stew.mv(es5Tree, '/es5')]);
 

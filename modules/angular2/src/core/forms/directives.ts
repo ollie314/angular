@@ -12,7 +12,7 @@ import {
   SelectControlValueAccessor,
   NgSelectOption
 } from './directives/select_control_value_accessor';
-import {DefaultValidators} from './directives/validators';
+import {RequiredValidator, MinLengthValidator, MaxLengthValidator} from './directives/validators';
 
 export {NgControlName} from './directives/ng_control_name';
 export {NgFormControl} from './directives/ng_form_control';
@@ -28,7 +28,7 @@ export {
   SelectControlValueAccessor,
   NgSelectOption
 } from './directives/select_control_value_accessor';
-export {DefaultValidators} from './directives/validators';
+export {RequiredValidator, MinLengthValidator, MaxLengthValidator} from './directives/validators';
 export {NgControlStatus} from './directives/ng_control_status';
 
 /**
@@ -40,11 +40,9 @@ export {NgControlStatus} from './directives/ng_control_status';
  * ### Example:
  *
  * ```typescript
- * @View({
- *   directives: [FORM_DIRECTIVES]
- * })
  * @Component({
- *   selector: 'my-app'
+ *   selector: 'my-app',
+ *   directives: [FORM_DIRECTIVES]
  * })
  * class MyApp {}
  * ```
@@ -64,5 +62,7 @@ export const FORM_DIRECTIVES: Type[] = CONST_EXPR([
   SelectControlValueAccessor,
   NgControlStatus,
 
-  DefaultValidators
+  RequiredValidator,
+  MinLengthValidator,
+  MaxLengthValidator
 ]);

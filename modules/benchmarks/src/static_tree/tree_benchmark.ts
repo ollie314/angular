@@ -6,10 +6,11 @@ import {
   View,
   ViewContainerRef,
   bind,
-  Binding,
+  provide,
+  Provider,
   NgIf
 } from 'angular2/core';
-
+import {ComponentRef_} from 'angular2/src/core/linker/dynamic_component_loader';
 import {LifeCycle} from 'angular2/src/core/life_cycle/life_cycle';
 import {reflector} from 'angular2/src/core/reflection/reflection';
 import {ReflectionCapabilities} from 'angular2/src/core/reflection/reflection_capabilities';
@@ -21,13 +22,13 @@ import {
   bindAction,
   windowProfile,
   windowProfileEnd
-} from 'angular2/src/test_lib/benchmark_util';
+} from 'angular2/src/testing/benchmark_util';
 import {BrowserDomAdapter} from 'angular2/src/core/dom/browser_adapter';
-import {APP_VIEW_POOL_CAPACITY} from 'angular2/src/core/compiler/view_pool';
+import {APP_VIEW_POOL_CAPACITY} from 'angular2/src/core/linker/view_pool';
 
-function createBindings(): Binding[] {
+function createBindings(): Provider[] {
   var viewCacheCapacity = getStringParameter('viewcache') == 'true' ? 10000 : 0;
-  return [bind(APP_VIEW_POOL_CAPACITY).toValue(viewCacheCapacity)];
+  return [provide(APP_VIEW_POOL_CAPACITY, {useValue: viewCacheCapacity})];
 }
 
 function setupReflector() {
@@ -96,10 +97,10 @@ export function main() {
   function initNg2() {
     bootstrap(AppComponentWithStaticTree, createBindings())
         .then((ref) => {
-          var injector = ref.injector;
+          var injector = (<ComponentRef_>ref).injector;
           lifeCycle = injector.get(LifeCycle);
 
-          app = ref.hostComponent;
+          app = (<ComponentRef_>ref).hostComponent;
           bindAction('#ng2DestroyDom', ng2DestroyDom);
           bindAction('#ng2CreateDom', ng2CreateDom);
           bindAction('#ng2UpdateDomProfile', profile(ng2CreateDom, noop, 'ng2-update'));

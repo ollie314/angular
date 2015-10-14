@@ -1,6 +1,6 @@
 import {OnInit, OnDestroy} from 'angular2/lifecycle_hooks';
 import {Directive} from 'angular2/src/core/metadata';
-import {Inject, Host, SkipSelf, forwardRef, Binding} from 'angular2/src/core/di';
+import {Inject, Host, SkipSelf, forwardRef, Provider} from 'angular2/src/core/di';
 import {ListWrapper} from 'angular2/src/core/facade/collection';
 import {CONST_EXPR} from 'angular2/src/core/facade/lang';
 
@@ -10,7 +10,7 @@ import {ControlGroup} from '../model';
 import {Form} from './form_interface';
 
 const controlGroupBinding =
-    CONST_EXPR(new Binding(ControlContainer, {toAlias: forwardRef(() => NgControlGroup)}));
+    CONST_EXPR(new Provider(ControlContainer, {useExisting: forwardRef(() => NgControlGroup)}));
 
 /**
  * Creates and binds a control group to a DOM element.
@@ -23,8 +23,8 @@ const controlGroupBinding =
  * We can work with each group separately: check its validity, get its value, listen to its changes.
  *
  *  ```
- * @Component({selector: "signup-comp"})
- * @View({
+ * @Component({
+ *      selector: "signup-comp",
  *      directives: [FORM_DIRECTIVES],
  *      template: `
  *              <form #f="form" (submit)='onSignUp(f.value)'>
@@ -58,6 +58,7 @@ const controlGroupBinding =
 })
 export class NgControlGroup extends ControlContainer implements OnInit,
     OnDestroy {
+  /** @internal */
   _parent: ControlContainer;
   constructor(@Host() @SkipSelf() _parent: ControlContainer) {
     super();

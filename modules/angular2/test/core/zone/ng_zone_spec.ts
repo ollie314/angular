@@ -11,9 +11,8 @@ import {
   xit,
   Log,
   isInInnerZone,
-  browserDetection,
-  TIMEOUT_INTERVAL_FOR_SLOW_BROWSERS
-} from 'angular2/test_lib';
+  browserDetection
+} from 'angular2/testing_internal';
 
 import {PromiseCompleter, PromiseWrapper, TimerWrapper} from 'angular2/src/core/facade/async';
 import {BaseException} from 'angular2/src/core/facade/exceptions';
@@ -24,7 +23,7 @@ var needsLongerTimers = browserDetection.isSlow || browserDetection.isEdge;
 var resultTimer = 1000;
 var testTimeout = browserDetection.isEdge ? 1200 : 100;
 // Schedules a macrotask (using a timer)
-function macroTask(fn: Function, timer = 1): void {
+function macroTask(fn: (...args: any[]) => void, timer = 1): void {
   // adds longer timers for passing tests in IE and Edge
   _zone.runOutsideAngular(() => TimerWrapper.setTimeout(fn, needsLongerTimers ? timer : 1));
 }

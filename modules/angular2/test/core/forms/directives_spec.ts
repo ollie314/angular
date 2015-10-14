@@ -12,7 +12,7 @@ import {
   el,
   AsyncTestCompleter,
   inject
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
 import {SpyNgControl, SpyValueAccessor} from '../spies';
 
@@ -28,7 +28,6 @@ import {
   NgForm,
   NgModel,
   NgFormControl,
-  DefaultValidators,
   NgControl,
   DefaultValueAccessor,
   CheckboxControlValueAccessor,
@@ -93,7 +92,7 @@ export function main() {
         });
 
         it("should throw when more than one custom accessor is provided", () => {
-          var customAccessor = new SpyValueAccessor();
+          var customAccessor: ControlValueAccessor = <any>new SpyValueAccessor();
           expect(() => selectValueAccessor(dir, [customAccessor, customAccessor])).toThrowError();
         });
       });

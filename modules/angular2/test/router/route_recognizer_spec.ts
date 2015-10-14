@@ -8,9 +8,9 @@ import {
   inject,
   beforeEach,
   SpyObject
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
-import {Map, StringMap, StringMapWrapper} from 'angular2/src/core/facade/collection';
+import {Map, StringMapWrapper} from 'angular2/src/core/facade/collection';
 
 import {RouteRecognizer} from 'angular2/src/router/route_recognizer';
 import {ComponentInstruction} from 'angular2/src/router/instruction';

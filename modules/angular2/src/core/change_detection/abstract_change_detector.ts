@@ -2,7 +2,7 @@ import {isPresent, isBlank, StringWrapper} from 'angular2/src/core/facade/lang';
 import {BaseException} from 'angular2/src/core/facade/exceptions';
 import {ListWrapper} from 'angular2/src/core/facade/collection';
 import {ChangeDetectionUtil} from './change_detection_util';
-import {ChangeDetectorRef} from './change_detector_ref';
+import {ChangeDetectorRef, ChangeDetectorRef_} from './change_detector_ref';
 import {DirectiveIndex} from './directive_record';
 import {ChangeDetector, ChangeDispatcher} from './interfaces';
 import {Pipes} from './pipes';
@@ -47,7 +47,7 @@ export class AbstractChangeDetector<T> implements ChangeDetector {
   constructor(public id: string, public dispatcher: ChangeDispatcher,
               public numberOfPropertyProtoRecords: number, public bindingTargets: BindingTarget[],
               public directiveIndices: DirectiveIndex[], public strategy: ChangeDetectionStrategy) {
-    this.ref = new ChangeDetectorRef(this);
+    this.ref = new ChangeDetectorRef_(this);
   }
 
   addChild(cd: ChangeDetector): void {
@@ -178,6 +178,7 @@ export class AbstractChangeDetector<T> implements ChangeDetector {
 
   afterViewLifecycleCallbacksInternal(): void {}
 
+  /** @internal */
   _detectChangesInLightDomChildren(throwOnChange: boolean): void {
     var c = this.lightDomChildren;
     for (var i = 0; i < c.length; ++i) {
@@ -185,6 +186,7 @@ export class AbstractChangeDetector<T> implements ChangeDetector {
     }
   }
 
+  /** @internal */
   _detectChangesInShadowDomChildren(throwOnChange: boolean): void {
     var c = this.shadowDomChildren;
     for (var i = 0; i < c.length; ++i) {
@@ -278,7 +280,7 @@ export class AbstractChangeDetector<T> implements ChangeDetector {
     this.dispatcher.logBindingUpdate(this._currentBinding(), value);
   }
 
-  addChange(changes: StringMap<string, any>, oldValue: any, newValue: any): StringMap<string, any> {
+  addChange(changes: {[key: string]: any}, oldValue: any, newValue: any): {[key: string]: any} {
     if (isBlank(changes)) {
       changes = {};
     }

@@ -1,10 +1,5 @@
-import {
-  Map,
-  MapWrapper,
-  StringMap,
-  StringMapWrapper,
-  ListWrapper
-} from 'angular2/src/core/facade/collection';
+import {Map, MapWrapper, StringMapWrapper, ListWrapper} from 'angular2/src/core/facade/collection';
+import {unimplemented} from 'angular2/src/core/facade/exceptions';
 import {isPresent, isBlank, normalizeBlank, Type} from 'angular2/src/core/facade/lang';
 import {Promise} from 'angular2/src/core/facade/async';
 
@@ -20,18 +15,16 @@ import {Url} from './url_parser';
  * ## Example
  *
  * ```
- * import {bootstrap, Component, View} from 'angular2/angular2';
- * import {Router, ROUTER_DIRECTIVES, routerBindings, RouteConfig} from 'angular2/router';
+ * import {bootstrap, Component} from 'angular2/angular2';
+ * import {Router, ROUTER_DIRECTIVES, ROUTER_PROVIDERS, RouteConfig} from 'angular2/router';
  *
- * @Component({...})
- * @View({directives: [ROUTER_DIRECTIVES]})
+ * @Component({directives: [ROUTER_DIRECTIVES]})
  * @RouteConfig([
  *  {path: '/user/:id', component: UserCmp, as: 'UserCmp'},
  * ])
  * class AppCmp {}
  *
- * @Component({...})
- * @View({ template: 'user: {{id}}' })
+ * @Component({ template: 'user: {{id}}' })
  * class UserCmp {
  *   string: id;
  *   constructor(params: RouteParams) {
@@ -39,11 +32,11 @@ import {Url} from './url_parser';
  *   }
  * }
  *
- * bootstrap(AppCmp, routerBindings(AppCmp));
+ * bootstrap(AppCmp, ROUTER_PROVIDERS);
  * ```
  */
 export class RouteParams {
-  constructor(public params: StringMap<string, string>) {}
+  constructor(public params: {[key: string]: string}) {}
 
   get(param: string): string { return normalizeBlank(StringMapWrapper.get(this.params, param)); }
 }
@@ -58,11 +51,10 @@ export class RouteParams {
  * ## Example
  *
  * ```
- * import {bootstrap, Component, View} from 'angular2/angular2';
- * import {Router, ROUTER_DIRECTIVES, routerBindings, RouteConfig} from 'angular2/router';
+ * import {bootstrap, Component} from 'angular2/angular2';
+ * import {Router, ROUTER_DIRECTIVES, ROUTER_PROVIDERS, RouteConfig} from 'angular2/router';
  *
- * @Component({...})
- * @View({directives: [ROUTER_DIRECTIVES]})
+ * @Component({directives: [ROUTER_DIRECTIVES]})
  * @RouteConfig([
  *  {...},
  * ])
@@ -73,12 +65,12 @@ export class RouteParams {
  *   }
  * }
  *
- * bootstrap(AppCmp, routerBindings(AppCmp));
+ * bootstrap(AppCmp, ROUTER_PROVIDERS);
  * ```
  */
 export class Instruction {
   constructor(public component: ComponentInstruction, public child: Instruction,
-              public auxInstruction: StringMap<string, Instruction>) {}
+              public auxInstruction: {[key: string]: Instruction}) {}
 
   /**
    * Returns a new instruction that shares the state of the existing instruction, but with
@@ -102,12 +94,18 @@ export class PrimaryInstruction {
 }
 
 export function stringifyInstruction(instruction: Instruction): string {
-  var params = instruction.component.urlParams.length > 0 ?
-                   ('?' + instruction.component.urlParams.join('&')) :
-                   '';
+  return stringifyInstructionPath(instruction) + stringifyInstructionQuery(instruction);
+}
 
+export function stringifyInstructionPath(instruction: Instruction): string {
   return instruction.component.urlPath + stringifyAux(instruction) +
-         stringifyPrimary(instruction.child) + params;
+         stringifyPrimary(instruction.child);
+}
+
+export function stringifyInstructionQuery(instruction: Instruction): string {
+  return instruction.component.urlParams.length > 0 ?
+             ('?' + instruction.component.urlParams.join('&')) :
+             '';
 }
 
 function stringifyPrimary(instruction: Instruction): string {
@@ -146,42 +144,55 @@ function stringifyAux(instruction: Instruction): string {
  *
  * You should not modify this object. It should be treated as immutable.
  */
-export class ComponentInstruction {
+export abstract class ComponentInstruction {
   reuse: boolean = false;
-
-  /**
-   * @private
-   */
-  constructor(public urlPath: string, public urlParams: string[],
-              private _recognizer: PathRecognizer, public params: StringMap<string, any> = null) {}
+  public urlPath: string;
+  public urlParams: string[];
+  public params: {[key: string]: any};
 
   /**
    * Returns the component type of the represented route, or `null` if this instruction
    * hasn't been resolved.
    */
-  get componentType() { return this._recognizer.handler.componentType; }
+  get componentType() { return unimplemented(); };
 
   /**
    * Returns a promise that will resolve to component type of the represented route.
    * If this instruction references an {@link AsyncRoute}, the `loader` function of that route
    * will run.
    */
-  resolveComponentType(): Promise<Type> { return this._recognizer.handler.resolveComponentType(); }
+  abstract resolveComponentType(): Promise<Type>;
 
   /**
    * Returns the specificity of the route associated with this `Instruction`.
    */
-  get specificity() { return this._recognizer.specificity; }
+  get specificity() { return unimplemented(); };
 
   /**
    * Returns `true` if the component type of this instruction has no child {@link RouteConfig},
    * or `false` if it does.
    */
-  get terminal() { return this._recognizer.terminal; }
+  get terminal() { return unimplemented(); };
 
   /**
    * Returns the route data of the given route that was specified in the {@link RouteDefinition},
    * or `null` if no route data was specified.
    */
+  abstract routeData(): Object;
+}
+
+export class ComponentInstruction_ extends ComponentInstruction {
+  constructor(urlPath: string, urlParams: string[], private _recognizer: PathRecognizer,
+              params: {[key: string]: any} = null) {
+    super();
+    this.urlPath = urlPath;
+    this.urlParams = urlParams;
+    this.params = params;
+  }
+
+  get componentType() { return this._recognizer.handler.componentType; }
+  resolveComponentType(): Promise<Type> { return this._recognizer.handler.resolveComponentType(); }
+  get specificity() { return this._recognizer.specificity; }
+  get terminal() { return this._recognizer.terminal; }
   routeData(): Object { return this._recognizer.handler.data; }
 }

@@ -27,7 +27,7 @@ export abstract class DomAdapter {
    * Maps attribute names to their corresponding property names for cases
    * where attribute name doesn't match property name.
    */
-  attrToPropMap: StringMap<string, string>;
+  attrToPropMap: {[key: string]: string};
 
   abstract parse(templateHtml: string);
   abstract query(selector: string): any;
@@ -117,6 +117,7 @@ export abstract class DomAdapter {
   abstract cssToRules(css: string): any[];
   abstract supportsDOMEvents(): boolean;
   abstract supportsNativeShadowDOM(): boolean;
+  abstract supportsUnprefixedCssAnimation(): boolean;
   abstract getGlobalEventTarget(target: string): any;
   abstract getHistory(): History;
   abstract getLocation(): Location;

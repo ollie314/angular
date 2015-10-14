@@ -9,7 +9,7 @@ import {
   inject,
   beforeEach,
   beforeEachBindings
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 import {SpyRouterOutlet} from './spies';
 import {Type} from 'angular2/src/core/facade/lang';
 import {Promise, PromiseWrapper, ObservableWrapper} from 'angular2/src/core/facade/async';
@@ -22,9 +22,9 @@ import {stringifyInstruction} from 'angular2/src/router/instruction';
 
 import {RouteRegistry} from 'angular2/src/router/route_registry';
 import {RouteConfig, AsyncRoute, Route} from 'angular2/src/router/route_config_decorator';
-import {DirectiveResolver} from 'angular2/src/core/compiler/directive_resolver';
+import {DirectiveResolver} from 'angular2/src/core/linker/directive_resolver';
 
-import {bind} from 'angular2/core';
+import {provide} from 'angular2/core';
 
 export function main() {
   describe('Router', () => {
@@ -33,10 +33,13 @@ export function main() {
     beforeEachBindings(() => [
       RouteRegistry,
       DirectiveResolver,
-      bind(Location).toClass(SpyLocation),
-      bind(Router)
-          .toFactory((registry, location) => { return new RootRouter(registry, location, AppCmp); },
-                     [RouteRegistry, Location])
+      provide(Location, {useClass: SpyLocation}),
+      provide(Router,
+              {
+                useFactory:
+                    (registry, location) => { return new RootRouter(registry, location, AppCmp); },
+                deps: [RouteRegistry, Location]
+              })
     ]);
 
 

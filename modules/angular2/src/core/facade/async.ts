@@ -1,4 +1,3 @@
-///<reference path="../../../typings/tsd.d.ts" />
 import {global, isPresent} from 'angular2/src/core/facade/lang';
 // TODO(jeffbcross): use ES6 import once typings are available
 var Subject = require('@reactivex/rxjs/dist/cjs/Subject');
@@ -56,14 +55,20 @@ export class PromiseWrapper {
   }
 }
 
-export class TimerWrapper {
-  static setTimeout(fn: Function, millis: number): number { return global.setTimeout(fn, millis); }
-  static clearTimeout(id: number): void { global.clearTimeout(id); }
+export namespace NodeJS {
+  export interface Timer {}
+}
 
-  static setInterval(fn: Function, millis: number): number {
+export class TimerWrapper {
+  static setTimeout(fn: (...args: any[]) => void, millis: number): NodeJS.Timer {
+    return global.setTimeout(fn, millis);
+  }
+  static clearTimeout(id: NodeJS.Timer): void { global.clearTimeout(id); }
+
+  static setInterval(fn: (...args: any[]) => void, millis: number): NodeJS.Timer {
     return global.setInterval(fn, millis);
   }
-  static clearInterval(id: number): void { global.clearInterval(id); }
+  static clearInterval(id: NodeJS.Timer): void { global.clearInterval(id); }
 }
 
 export class ObservableWrapper {
@@ -99,8 +104,9 @@ export class Observable {
  * title gets clicked:
  *
  * ```
- * @Component({selector: 'zippy'})
- * @View({template: `
+ * @Component({
+ *   selector: 'zippy',
+ *   template: `
  *   <div class="zippy">
  *     <div (click)="toggle()">Toggle</div>
  *     <div [hidden]="!visible">
@@ -129,6 +135,7 @@ export class Observable {
  * Once a reference implementation of the spec is available, switch to it.
  */
 export class EventEmitter extends Observable {
+  /** @internal */
   _subject = new Subject();
 
   observer(generator: any): any {
@@ -137,7 +144,7 @@ export class EventEmitter extends Observable {
                                    () => generator.return ? generator.return () : null);
   }
 
-  toRx(): any { return this; }
+  toRx(): any { return this._subject; }
 
   next(value: any) { this._subject.next(value); }
 

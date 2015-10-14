@@ -10,11 +10,11 @@ import {
   it,
   xit,
   SpyObject
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 import {ObservableWrapper} from 'angular2/src/core/facade/async';
 import {BrowserXhr} from 'angular2/src/http/backends/browser_xhr';
 import {XHRConnection, XHRBackend} from 'angular2/src/http/backends/xhr_backend';
-import {bind, Injector} from 'angular2/core';
+import {provide, Injector} from 'angular2/core';
 import {Request} from 'angular2/src/http/static_request';
 import {Response} from 'angular2/src/http/static_response';
 import {Headers} from 'angular2/src/http/headers';
@@ -75,9 +75,8 @@ export function main() {
 
     beforeEach(() => {
       var injector = Injector.resolveAndCreate([
-        bind(ResponseOptions)
-            .toClass(BaseResponseOptions),
-        bind(BrowserXhr).toClass(MockBrowserXHR),
+        provide(ResponseOptions, {useClass: BaseResponseOptions}),
+        provide(BrowserXhr, {useClass: MockBrowserXHR}),
         XHRBackend
       ]);
       backend = injector.get(XHRBackend);
@@ -148,14 +147,16 @@ export function main() {
       });
 
       it('should attach headers to the request', () => {
-        var headers = new Headers({'Content-Type': 'text/xml', 'Breaking-Bad': '<3'});
+        var headers =
+            new Headers({'Content-Type': 'text/xml', 'Breaking-Bad': '<3', 'X-Multi': ['a', 'b']});
 
         var base = new BaseRequestOptions();
         var connection = new XHRConnection(
             new Request(base.merge(new RequestOptions({headers: headers}))), new MockBrowserXHR());
         connection.response.subscribe();
-        expect(setRequestHeaderSpy).toHaveBeenCalledWith('Content-Type', ['text/xml']);
-        expect(setRequestHeaderSpy).toHaveBeenCalledWith('Breaking-Bad', ['<3']);
+        expect(setRequestHeaderSpy).toHaveBeenCalledWith('Content-Type', 'text/xml');
+        expect(setRequestHeaderSpy).toHaveBeenCalledWith('Breaking-Bad', '<3');
+        expect(setRequestHeaderSpy).toHaveBeenCalledWith('X-Multi', 'a,b');
       });
 
       it('should return the correct status code', inject([AsyncTestCompleter], async => {

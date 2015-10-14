@@ -9,9 +9,10 @@ import {
   inject,
   it,
   xit
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 import {
   bind,
+  provide,
   forwardRef,
   resolveForwardRef,
   Component,
@@ -39,7 +40,7 @@ export function main() {
   });
 }
 
-@Component({selector: 'app', viewBindings: [forwardRef(() => Frame)]})
+@Component({selector: 'app', viewProviders: [forwardRef(() => Frame)]})
 @View({
   template: `<door><lock></lock></door>`,
   directives: [forwardRef(() => Door), forwardRef(() => Lock)]

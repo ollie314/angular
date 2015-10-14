@@ -49,7 +49,7 @@ DtsSerializer.prototype = {
   },
 
   member: function(buffer, ast) {
-    if (ast.private) return;
+    if (ast.private || ast.internal) return;
 
     buffer.push('\n');
     this.comment(buffer, ast.content);
@@ -59,6 +59,10 @@ DtsSerializer.prototype = {
   },
 
   interfaceOrClass: function(buffer, ast, isInterface) {
+    if (ast.abstract) {
+      buffer.push('abstract ');
+    }
+
     buffer.push(isInterface ? 'interface ' : 'class ');
     buffer.push(ast.name);
     buffer.push(ast.typeParams);

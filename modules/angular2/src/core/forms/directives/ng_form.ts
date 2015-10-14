@@ -7,7 +7,7 @@ import {
 import {StringMapWrapper, ListWrapper} from 'angular2/src/core/facade/collection';
 import {isPresent, isBlank, CONST_EXPR} from 'angular2/src/core/facade/lang';
 import {Directive} from 'angular2/src/core/metadata';
-import {forwardRef, Binding} from 'angular2/src/core/di';
+import {forwardRef, Provider} from 'angular2/src/core/di';
 import {NgControl} from './ng_control';
 import {Form} from './form_interface';
 import {NgControlGroup} from './ng_control_group';
@@ -15,8 +15,8 @@ import {ControlContainer} from './control_container';
 import {AbstractControl, ControlGroup, Control} from '../model';
 import {setUpControl} from './shared';
 
-const formDirectiveBinding =
-    CONST_EXPR(new Binding(ControlContainer, {toAlias: forwardRef(() => NgForm)}));
+const formDirectiveProvider =
+    CONST_EXPR(new Provider(ControlContainer, {useExisting: forwardRef(() => NgForm)}));
 
 /**
  * If `NgForm` is bound in a component, `<form>` elements in that component will be
@@ -29,9 +29,9 @@ const formDirectiveBinding =
  *
  * # Structure
  *
- * An Angular form is a collection of {@link Control}s in some hierarchy.
- * `Control`s can be at the top level or can be organized in {@link ControlGroups}
- * or {@link ControlArray}s. This hierarchy is reflected in the form's `value`, a
+ * An Angular form is a collection of `Control`s in some hierarchy.
+ * `Control`s can be at the top level or can be organized in `ControlGroup`s
+ * or `ControlArray`s. This hierarchy is reflected in the form's `value`, a
  * JSON object that mirrors the form structure.
  *
  * # Submission
@@ -42,9 +42,7 @@ const formDirectiveBinding =
  *
  *  ```typescript
  * @Component({
- *   selector: 'my-app'
- * })
- * @View({
+ *   selector: 'my-app',
  *   template: `
  *     <div>
  *       <p>Submit the form to see the data object Angular builds</p>
@@ -81,7 +79,7 @@ const formDirectiveBinding =
  */
 @Directive({
   selector: 'form:not([ng-no-form]):not([ng-form-model]),ng-form,[ng-form]',
-  bindings: [formDirectiveBinding],
+  bindings: [formDirectiveProvider],
   host: {
     '(submit)': 'onSubmit()',
   },
@@ -98,7 +96,7 @@ export class NgForm extends ControlContainer implements Form {
 
   get path(): string[] { return []; }
 
-  get controls(): StringMap<string, AbstractControl> { return this.form.controls; }
+  get controls(): {[key: string]: AbstractControl} { return this.form.controls; }
 
   addControl(dir: NgControl): void {
     this._later(_ => {
@@ -157,10 +155,12 @@ export class NgForm extends ControlContainer implements Form {
     return false;
   }
 
+  /** @internal */
   _findContainer(path: string[]): ControlGroup {
-    ListWrapper.removeLast(path);
+    path.pop();
     return ListWrapper.isEmpty(path) ? this.form : <ControlGroup>this.form.find(path);
   }
 
+  /** @internal */
   _later(fn): void { PromiseWrapper.then(PromiseWrapper.resolve(null), fn, (_) => {}); }
 }

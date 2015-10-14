@@ -3,24 +3,23 @@ import {StringWrapper, isPresent, CONST_EXPR} from 'angular2/src/core/facade/lan
 import {EventEmitter, ObservableWrapper} from 'angular2/src/core/facade/async';
 import {isBlank} from 'angular2/src/core/facade/lang';
 import {BaseException, WrappedException} from 'angular2/src/core/facade/exceptions';
-import {OpaqueToken, Injectable, Optional, Inject} from 'angular2/src/core/di';
+import {OpaqueToken, Injectable, Optional, Inject} from 'angular2/angular2';
 
 /**
  * The `APP_BASE_HREF` token represents the base href to be used with the
  * {@link PathLocationStrategy}.
  *
- * If you're using {@link PathLocationStrategy}, you must provide a binding to a string
+ * If you're using {@link PathLocationStrategy}, you must provide a provider to a string
  * representing the URL prefix that should be preserved when generating and recognizing
  * URLs.
  *
  * ## Example
  *
  * ```
- * import {Component, View} from 'angular2/angular2';
- * import {ROUTER_DIRECTIVES, routerBindings, RouteConfig} from 'angular2/router';
+ * import {Component} from 'angular2/angular2';
+ * import {ROUTER_DIRECTIVES, ROUTER_PROVIDERS, RouteConfig} from 'angular2/router';
  *
- * @Component({...})
- * @View({directives: [ROUTER_DIRECTIVES]})
+ * @Component({directives: [ROUTER_DIRECTIVES]})
  * @RouteConfig([
  *  {...},
  * ])
@@ -29,9 +28,9 @@ import {OpaqueToken, Injectable, Optional, Inject} from 'angular2/src/core/di';
  * }
  *
  * bootstrap(AppCmp, [
- *   routerBindings(AppCmp),
+ *   ROUTER_PROVIDERS,
  *   PathLocationStrategy,
- *   bind(APP_BASE_HREF).toValue('/my/app')
+ *   provide(APP_BASE_HREF, {useValue: '/my/app'})
  * ]);
  * ```
  */
@@ -56,16 +55,15 @@ export const APP_BASE_HREF: OpaqueToken = CONST_EXPR(new OpaqueToken('appBaseHre
  * ## Example
  *
  * ```
- * import {Component, View} from 'angular2/angular2';
+ * import {Component} from 'angular2/angular2';
  * import {
  *   ROUTER_DIRECTIVES,
- *   routerBindings,
+ *   ROUTER_PROVIDERS,
  *   RouteConfig,
  *   Location
  * } from 'angular2/router';
  *
- * @Component({...})
- * @View({directives: [ROUTER_DIRECTIVES]})
+ * @Component({directives: [ROUTER_DIRECTIVES]})
  * @RouteConfig([
  *  {...},
  * ])
@@ -75,12 +73,14 @@ export const APP_BASE_HREF: OpaqueToken = CONST_EXPR(new OpaqueToken('appBaseHre
  *   }
  * }
  *
- * bootstrap(AppCmp, [routerBindings(AppCmp)]);
+ * bootstrap(AppCmp, [ROUTER_PROVIDERS]);
  * ```
  */
 @Injectable()
 export class Location {
+  /** @internal */
   _subject: EventEmitter = new EventEmitter();
+  /** @internal */
   _baseHref: string;
 
   constructor(public platformStrategy: LocationStrategy,
@@ -89,7 +89,7 @@ export class Location {
 
     if (isBlank(browserBaseHref)) {
       throw new BaseException(
-          `No base href set. Either provide a binding to "appBaseHrefToken" or add a base element.`);
+          `No base href set. Either provide a provider for the APP_BASE_HREF token or add a base element to the document.`);
     }
 
     this._baseHref = stripTrailingSlash(stripIndexHtml(browserBaseHref));
@@ -125,9 +125,9 @@ export class Location {
    * Changes the browsers URL to the normalized version of the given URL, and pushes a
    * new item onto the platform's history.
    */
-  go(url: string): void {
-    var finalUrl = this.normalizeAbsolutely(url);
-    this.platformStrategy.pushState(null, '', finalUrl);
+  go(path: string, query: string = ''): void {
+    var absolutePath = this.normalizeAbsolutely(path);
+    this.platformStrategy.pushState(null, '', absolutePath, query);
   }
 
   /**

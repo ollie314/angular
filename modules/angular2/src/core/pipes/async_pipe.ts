@@ -47,9 +47,7 @@ var _observableStrategy = new ObservableStrategy();
  * ```
  * import {Observable} from 'angular2/core';
  * @Component({
- *   selector: "task-cmp"
- * })
- * @View({
+ *   selector: "task-cmp",
  *   template: "Time: {{ time | async }}"
  * })
  * class Task {
@@ -63,14 +61,19 @@ var _observableStrategy = new ObservableStrategy();
 @Pipe({name: 'async', pure: false})
 @Injectable()
 export class AsyncPipe implements PipeTransform, PipeOnDestroy {
+  /** @internal */
   _latestValue: Object = null;
+  /** @internal */
   _latestReturnedValue: Object = null;
 
+  /** @internal */
   _subscription: Object = null;
+  /** @internal */
   _obj: Observable | Promise<any> = null;
   private _strategy: any = null;
-
-  constructor(public _ref: ChangeDetectorRef) {}
+  /** @internal */
+  public _ref: ChangeDetectorRef;
+  constructor(_ref: ChangeDetectorRef) { this._ref = _ref; }
 
   onDestroy(): void {
     if (isPresent(this._subscription)) {
@@ -99,6 +102,7 @@ export class AsyncPipe implements PipeTransform, PipeOnDestroy {
     }
   }
 
+  /** @internal */
   _subscribe(obj: Observable | Promise<any>): void {
     this._obj = obj;
     this._strategy = this._selectStrategy(obj);
@@ -106,6 +110,7 @@ export class AsyncPipe implements PipeTransform, PipeOnDestroy {
         this._strategy.createSubscription(obj, value => this._updateLatestValue(obj, value));
   }
 
+  /** @internal */
   _selectStrategy(obj: Observable | Promise<any>): any {
     if (isPromise(obj)) {
       return _promiseStrategy;
@@ -116,6 +121,7 @@ export class AsyncPipe implements PipeTransform, PipeOnDestroy {
     }
   }
 
+  /** @internal */
   _dispose(): void {
     this._strategy.dispose(this._subscription);
     this._latestValue = null;
@@ -124,6 +130,7 @@ export class AsyncPipe implements PipeTransform, PipeOnDestroy {
     this._obj = null;
   }
 
+  /** @internal */
   _updateLatestValue(async: any, value: Object) {
     if (async === this._obj) {
       this._latestValue = value;

@@ -15,6 +15,7 @@ import replace from '../broccoli-replace';
 
 var global_excludes = [
   'angular2/http*',
+  'angular2/examples/*/ts/**/*',
   'angular2/src/http/**/*',
   'angular2/test/http/**/*',
   'examples/src/http/**/*',
@@ -128,14 +129,7 @@ function getTemplatedPubspecsTree() {
     license: BASE_PACKAGE_JSON.license,
     contributors: BASE_PACKAGE_JSON.contributors,
     dependencies: BASE_PACKAGE_JSON.dependencies,
-    devDependencies: {
-      "yargs": BASE_PACKAGE_JSON.devDependencies['yargs'],
-      "gulp-sourcemaps": BASE_PACKAGE_JSON.devDependencies['gulp-sourcemaps'],
-      "gulp-traceur": BASE_PACKAGE_JSON.devDependencies['gulp-traceur'],
-      "gulp": BASE_PACKAGE_JSON.devDependencies['gulp'],
-      "gulp-rename": BASE_PACKAGE_JSON.devDependencies['gulp-rename'],
-      "through2": BASE_PACKAGE_JSON.devDependencies['through2']
-    }
+    devDependencies: {}
   };
   // Generate pubspec.yaml from templates.
   var pubspecs = modulesFunnel(['**/pubspec.yaml']);

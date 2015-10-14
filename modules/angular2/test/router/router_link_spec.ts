@@ -12,11 +12,11 @@ import {
   it,
   xit,
   TestComponentBuilder
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
 import {SpyRouter, SpyLocation} from './spies';
 
-import {bind, Component, View} from 'angular2/core';
+import {provide, Component, View} from 'angular2/core';
 import {By} from 'angular2/src/core/debug';
 
 import {
@@ -32,16 +32,18 @@ import {
 } from 'angular2/router';
 
 import {DOM} from 'angular2/src/core/dom/dom_adapter';
+import {ComponentInstruction_} from "angular2/src/router/instruction";
 
-var dummyInstruction = new Instruction(new ComponentInstruction('detail', [], null), null, {});
+var dummyInstruction = new Instruction(new ComponentInstruction_('detail', [], null), null, {});
 
 export function main() {
   describe('router-link directive', function() {
     var tcb: TestComponentBuilder;
 
-    beforeEachBindings(
-        () =>
-            [bind(Location).toValue(makeDummyLocation()), bind(Router).toValue(makeDummyRouter())]);
+    beforeEachBindings(() => [
+      provide(Location, {useValue: makeDummyLocation()}),
+      provide(Router, {useValue: makeDummyRouter()})
+    ]);
 
     beforeEach(inject([TestComponentBuilder], (tcBuilder) => { tcb = tcBuilder; }));
 

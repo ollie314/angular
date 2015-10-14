@@ -43,14 +43,14 @@ module.exports = new Package('angular-v2-docs', [jsdocPackage, nunjucksPackage, 
     'angular2/web_worker/ui.ts',
     'angular2/router.ts',
     'angular2/http.ts',
-    'angular2/test_lib.ts'
+    'angular2/testing.ts'
   ];
   readTypeScriptModules.basePath = path.resolve(path.resolve(__dirname, '../../modules'));
 
   createTypeDefinitionFile.typeDefinitions = [
     {
       id: 'angular2/angular2',
-      references: ['../es6-shim/es6-shim.d.ts'],
+      references: [],
       modules: {
         'angular2/angular2': {namespace: 'ng', id: 'angular2/angular2'},
         'angular2/web_worker/worker': {namespace: 'ngWorker', id: 'angular2/web_worker/worker'},
@@ -60,7 +60,7 @@ module.exports = new Package('angular-v2-docs', [jsdocPackage, nunjucksPackage, 
     {
       id: 'angular2/router',
       references: ['./angular2.d.ts'],
-      remapTypes: {Type: 'ng.Type', InjectableReference: 'ng.InjectableReference'},
+      remapTypes: {Type: 'ng.Type', InjectableReference: 'ng.InjectableReference', ElementRef: 'ng.ElementRef', DynamicComponentLoader: 'ng.DynamicComponentLoader'},
       modules: {'angular2/router': {namespace: 'ngRouter', id: 'angular2/router'}}
     },
     {
@@ -70,12 +70,12 @@ module.exports = new Package('angular-v2-docs', [jsdocPackage, nunjucksPackage, 
       modules: {'angular2/http': {namespace: 'ngHttp', id: 'angular2/http'}}
     },
     {
-      id: 'angular2/test_lib',
-      references: ['./angular2.d.ts', '../jasmine/jasmine.d.ts'],
-      remapTypes: { Type: 'ng.Type', Binding: 'ng.Binding', ViewMetadata: 'ng.ViewMetadata', Injector: 'ng.Injector',
+      id: 'angular2/testing',
+      references: ['./angular2.d.ts'],
+      remapTypes: { Type: 'ng.Type', Binding: 'ng.Binding', Provider: 'ng.Provider', ViewMetadata: 'ng.ViewMetadata', Injector: 'ng.Injector',
                     Predicate: 'ng.Predicate', ElementRef: 'ng.ElementRef', DebugElement: 'ng.DebugElement',
-                    InjectableReference: 'ng.InjectableReference' },
-      modules: {'angular2/test_lib': {namespace: 'ngTestLib', id: 'angular2/test_lib'}}
+                    InjectableReference: 'ng.InjectableReference', ComponentRef: 'ng.ComponentRef' },
+      modules: {'angular2/testing': {namespace: 'ngTesting', id: 'angular2/testing'}}
     }
   ];
 })

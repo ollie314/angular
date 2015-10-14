@@ -3,7 +3,7 @@ import {EventEmitter, ObservableWrapper} from 'angular2/src/core/facade/async';
 import {OnChanges} from 'angular2/lifecycle_hooks';
 import {SimpleChange} from 'angular2/src/core/change_detection';
 import {Query, Directive} from 'angular2/src/core/metadata';
-import {forwardRef, Binding, Inject, Optional} from 'angular2/src/core/di';
+import {forwardRef, Provider, Inject, Optional} from 'angular2/src/core/di';
 import {NgControl} from './ng_control';
 import {Control} from '../model';
 import {Validators, NG_VALIDATORS} from '../validators';
@@ -11,7 +11,7 @@ import {ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor'
 import {setUpControl, isPropertyUpdated, selectValueAccessor} from './shared';
 
 const formControlBinding =
-    CONST_EXPR(new Binding(NgControl, {toAlias: forwardRef(() => NgFormControl)}));
+    CONST_EXPR(new Provider(NgControl, {useExisting: forwardRef(() => NgFormControl)}));
 
 /**
  * Binds an existing {@link Control} to a DOM element.
@@ -24,9 +24,7 @@ const formControlBinding =
  *
  *  ```typescript
  * @Component({
- *   selector: 'my-app'
- * })
- * @View({
+ *   selector: 'my-app',
  *   template: `
  *     <div>
  *       <h2>NgFormControl Example</h2>
@@ -51,8 +49,8 @@ const formControlBinding =
  * ### Example ([live demo](http://plnkr.co/edit/yHMLuHO7DNgT8XvtjTDH?p=preview))
  *
  *  ```typescript
- * @Component({selector: "login-comp"})
- * @View({
+ * @Component({
+ *      selector: "login-comp",
  *      directives: [FORM_DIRECTIVES],
  *      template: "<input type='text' [ng-form-control]='loginControl' [(ng-model)]='login'>"
  *      })
@@ -66,12 +64,13 @@ const formControlBinding =
   selector: '[ng-form-control]',
   bindings: [formControlBinding],
   inputs: ['form: ngFormControl', 'model: ngModel'],
-  outputs: ['update: ngModel'],
+  outputs: ['update: ngModelChange'],
   exportAs: 'form'
 })
 export class NgFormControl extends NgControl implements OnChanges {
   form: Control;
   update = new EventEmitter();
+  /** @internal */
   _added = false;
   model: any;
   viewModel: any;
@@ -84,7 +83,7 @@ export class NgFormControl extends NgControl implements OnChanges {
     this.valueAccessor = selectValueAccessor(this, valueAccessors);
   }
 
-  onChanges(changes: StringMap<string, SimpleChange>): void {
+  onChanges(changes: {[key: string]: SimpleChange}): void {
     if (!this._added) {
       setUpControl(this.form, this);
       this.form.updateValidity();

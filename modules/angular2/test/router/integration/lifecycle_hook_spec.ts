@@ -13,9 +13,9 @@ import {
   beforeEachBindings,
   it,
   xit
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
-import {bind, Component, Injector, Inject, View} from 'angular2/core';
+import {provide, Component, Injector, Inject, View} from 'angular2/core';
 import {isPresent} from 'angular2/src/core/facade/lang';
 import {
   Promise,
@@ -47,7 +47,7 @@ import {
 } from 'angular2/src/router/interfaces';
 import {CanActivate} from 'angular2/src/router/lifecycle_annotations';
 import {ComponentInstruction} from 'angular2/src/router/instruction';
-import {DirectiveResolver} from 'angular2/src/core/compiler/directive_resolver';
+import {DirectiveResolver} from 'angular2/src/core/linker/directive_resolver';
 
 var cmpInstanceCount;
 var log: string[];
@@ -64,10 +64,13 @@ export function main() {
     beforeEachBindings(() => [
       RouteRegistry,
       DirectiveResolver,
-      bind(Location).toClass(SpyLocation),
-      bind(Router)
-          .toFactory((registry, location) => { return new RootRouter(registry, location, MyComp); },
-                     [RouteRegistry, Location])
+      provide(Location, {useClass: SpyLocation}),
+      provide(Router,
+              {
+                useFactory:
+                    (registry, location) => { return new RootRouter(registry, location, MyComp); },
+                deps: [RouteRegistry, Location]
+              })
     ]);
 
     beforeEach(inject([TestComponentBuilder, Router], (tcBuilder, router) => {

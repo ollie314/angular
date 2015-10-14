@@ -4,8 +4,13 @@ import {Location} from 'angular2/src/router/location';
 
 export class SpyLocation implements Location {
   urlChanges: string[] = [];
+  /** @internal */
   _path: string = '';
+  /** @internal */
+  _query: string = '';
+  /** @internal */
   _subject: EventEmitter = new EventEmitter();
+  /** @internal */
   _baseHref: string = '';
 
   setInitialPath(url: string) { this._path = url; }
@@ -18,12 +23,15 @@ export class SpyLocation implements Location {
 
   normalizeAbsolutely(url: string): string { return this._baseHref + url; }
 
-  go(url: string) {
-    url = this.normalizeAbsolutely(url);
-    if (this._path == url) {
+  go(path: string, query: string = '') {
+    path = this.normalizeAbsolutely(path);
+    if (this._path == path && this._query == query) {
       return;
     }
-    this._path = url;
+    this._path = path;
+    this._query = query;
+
+    var url = path + (query.length > 0 ? ('?' + query) : '');
     this.urlChanges.push(url);
   }
 

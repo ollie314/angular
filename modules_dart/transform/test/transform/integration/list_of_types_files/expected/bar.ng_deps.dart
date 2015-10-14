@@ -1,8 +1,11 @@
 library bar.ng_deps.dart;
 
+import 'bar.template.dart' as _templates;
+
 import 'bar.dart';
 import 'package:angular2/src/core/reflection/reflection.dart' as _ngRef;
 import 'package:angular2/src/core/metadata.dart';
+import 'package:angular2/src/core/metadata.ng_deps.dart' as i0;
 import 'foo.dart';
 export 'bar.dart';
 
@@ -14,8 +17,11 @@ void initReflector() {
     ..registerType(
         MyComponent,
         new _ngRef.ReflectionInfo(const [
-          const Component(componentServices: const [MyContext])
+          const Component(componentServices: const [MyContext]),
+          const View(template: ''),
+          _templates.HostMyComponentTemplate
         ], const [
           const [MyContext]
         ], (MyContext c) => new MyComponent(c)));
+  i0.initReflector();
 }

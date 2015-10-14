@@ -3,14 +3,15 @@ import {EventEmitter, ObservableWrapper} from 'angular2/src/core/facade/async';
 import {OnChanges} from 'angular2/lifecycle_hooks';
 import {SimpleChange} from 'angular2/src/core/change_detection';
 import {Query, Directive} from 'angular2/src/core/metadata';
-import {forwardRef, Binding, Inject, Optional} from 'angular2/src/core/di';
+import {forwardRef, Provider, Inject, Optional} from 'angular2/src/core/di';
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor';
 import {NgControl} from './ng_control';
 import {Control} from '../model';
 import {Validators, NG_VALIDATORS} from '../validators';
 import {setUpControl, isPropertyUpdated, selectValueAccessor} from './shared';
 
-const formControlBinding = CONST_EXPR(new Binding(NgControl, {toAlias: forwardRef(() => NgModel)}));
+const formControlBinding =
+    CONST_EXPR(new Provider(NgControl, {useExisting: forwardRef(() => NgModel)}));
 
 /**
  * Binds a domain model to a form control.
@@ -23,8 +24,8 @@ const formControlBinding = CONST_EXPR(new Binding(NgControl, {toAlias: forwardRe
  *
  * ### Example ([live demo](http://plnkr.co/edit/R3UX5qDaUqFO2VYR0UzH?p=preview))
  *  ```typescript
- * @Component({selector: "search-comp"})
- * @View({
+ * @Component({
+ *      selector: "search-comp",
  *      directives: [FORM_DIRECTIVES],
  *      template: `<input type='text' [(ng-model)]="searchQuery">`
  *      })
@@ -37,11 +38,13 @@ const formControlBinding = CONST_EXPR(new Binding(NgControl, {toAlias: forwardRe
   selector: '[ng-model]:not([ng-control]):not([ng-form-control])',
   bindings: [formControlBinding],
   inputs: ['model: ngModel'],
-  outputs: ['update: ngModel'],
+  outputs: ['update: ngModelChange'],
   exportAs: 'form'
 })
 export class NgModel extends NgControl implements OnChanges {
+  /** @internal */
   _control = new Control();
+  /** @internal */
   _added = false;
   update = new EventEmitter();
   model: any;
@@ -55,7 +58,7 @@ export class NgModel extends NgControl implements OnChanges {
     this.valueAccessor = selectValueAccessor(this, valueAccessors);
   }
 
-  onChanges(changes: StringMap<string, SimpleChange>) {
+  onChanges(changes: {[key: string]: SimpleChange}) {
     if (!this._added) {
       setUpControl(this._control, this);
       this._control.updateValidity();

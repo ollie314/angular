@@ -9,18 +9,17 @@ import {
   it,
   xdescribe,
   xit,
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
 import {bootstrap} from 'angular2/bootstrap';
 import {Component, Directive, View} from 'angular2/src/core/metadata';
 import {DOM} from 'angular2/src/core/dom/dom_adapter';
-import {bind} from 'angular2/core';
+import {provide} from 'angular2/core';
 import {DOCUMENT} from 'angular2/src/core/render/render';
 import {Type} from 'angular2/src/core/facade/lang';
 
 import {
-  ROUTER_BINDINGS,
-  ROUTER_PRIMARY_COMPONENT,
+  ROUTER_PROVIDERS,
   Router,
   RouteConfig,
   APP_BASE_HREF,
@@ -49,16 +48,15 @@ export function main() {
       var logger = new _ArrayLogger();
       var exceptionHandler = new ExceptionHandler(logger, true);
       testBindings = [
-        ROUTER_BINDINGS,
-        bind(LocationStrategy).toClass(MockLocationStrategy),
-        bind(DOCUMENT).toValue(fakeDoc),
-        bind(ExceptionHandler).toValue(exceptionHandler)
+        ROUTER_PROVIDERS,
+        provide(LocationStrategy, {useClass: MockLocationStrategy}),
+        provide(DOCUMENT, {useValue: fakeDoc}),
+        provide(ExceptionHandler, {useValue: exceptionHandler})
       ];
     });
 
     it('should bootstrap an app with a hierarchy', inject([AsyncTestCompleter], (async) => {
-         bootstrap(HierarchyAppCmp,
-                   [bind(ROUTER_PRIMARY_COMPONENT).toValue(HierarchyAppCmp), testBindings])
+         bootstrap(HierarchyAppCmp, testBindings)
              .then((applicationRef) => {
                var router = applicationRef.hostComponent.router;
                router.subscribe((_) => {
@@ -72,8 +70,7 @@ export function main() {
 
 
     it('should work in an app with redirects', inject([AsyncTestCompleter], (async) => {
-         bootstrap(RedirectAppCmp,
-                   [bind(ROUTER_PRIMARY_COMPONENT).toValue(RedirectAppCmp), testBindings])
+         bootstrap(RedirectAppCmp, testBindings)
              .then((applicationRef) => {
                var router = applicationRef.hostComponent.router;
                router.subscribe((_) => {
@@ -87,7 +84,22 @@ export function main() {
 
 
     it('should work in an app with async components', inject([AsyncTestCompleter], (async) => {
-         bootstrap(AsyncAppCmp, [bind(ROUTER_PRIMARY_COMPONENT).toValue(AsyncAppCmp), testBindings])
+         bootstrap(AsyncAppCmp, testBindings)
+             .then((applicationRef) => {
+               var router = applicationRef.hostComponent.router;
+               router.subscribe((_) => {
+                 expect(el).toHaveText('root { hello }');
+                 expect(applicationRef.hostComponent.location.path()).toEqual('/hello');
+                 async.done();
+               });
+               router.navigateByUrl('/hello');
+             });
+       }));
+
+
+    it('should work in an app with async components defined with "loader"',
+       inject([AsyncTestCompleter], (async) => {
+         bootstrap(ConciseAsyncAppCmp, testBindings)
              .then((applicationRef) => {
                var router = applicationRef.hostComponent.router;
                router.subscribe((_) => {
@@ -102,9 +114,7 @@ export function main() {
 
     it('should work in an app with a constructor component',
        inject([AsyncTestCompleter], (async) => {
-         bootstrap(
-             ExplicitConstructorAppCmp,
-             [bind(ROUTER_PRIMARY_COMPONENT).toValue(ExplicitConstructorAppCmp), testBindings])
+         bootstrap(ExplicitConstructorAppCmp, testBindings)
              .then((applicationRef) => {
                var router = applicationRef.hostComponent.router;
                router.subscribe((_) => {
@@ -120,8 +130,7 @@ export function main() {
        inject(
            [AsyncTestCompleter],
            (async) => {
-               bootstrap(WrongConfigCmp,
-                         [bind(ROUTER_PRIMARY_COMPONENT).toValue(WrongConfigCmp), testBindings])
+               bootstrap(WrongConfigCmp, testBindings)
                    .catch((e) => {
                      expect(e.originalException)
                          .toContainError(
@@ -134,9 +143,7 @@ export function main() {
        inject(
            [AsyncTestCompleter],
            (async) => {
-               bootstrap(
-                   WrongComponentTypeCmp,
-                   [bind(ROUTER_PRIMARY_COMPONENT).toValue(WrongComponentTypeCmp), testBindings])
+               bootstrap(WrongComponentTypeCmp, testBindings)
                    .catch((e) => {
                      expect(e.originalException)
                          .toContainError(
@@ -149,8 +156,7 @@ export function main() {
        inject(
            [AsyncTestCompleter],
            (async) => {
-               bootstrap(BadAliasCmp,
-                         [bind(ROUTER_PRIMARY_COMPONENT).toValue(BadAliasCmp), testBindings])
+               bootstrap(BadAliasCmp, testBindings)
                    .catch((e) => {
                      expect(e.originalException)
                          .toContainError(
@@ -184,6 +190,15 @@ function HelloLoader(): Promise<any> {
   {path: '/hello', component: {type: 'loader', loader: HelloLoader}},
 ])
 class AsyncAppCmp {
+  constructor(public router: Router, public location: LocationStrategy) {}
+}
+
+@Component({selector: 'app-cmp'})
+@View({template: `root { <router-outlet></router-outlet> }`, directives: ROUTER_DIRECTIVES})
+@RouteConfig([
+  {path: '/hello', loader: HelloLoader},
+])
+class ConciseAsyncAppCmp {
   constructor(public router: Router, public location: LocationStrategy) {}
 }
 

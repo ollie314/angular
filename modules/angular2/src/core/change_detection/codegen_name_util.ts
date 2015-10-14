@@ -40,8 +40,10 @@ export class CodegenNameUtil {
   /**
    * Record names sanitized for use as fields.
    * See [sanitizeName] for details.
+   * @internal
    */
   _sanitizedNames: string[];
+  /** @internal */
   _sanitizedEventNames = new Map<EventBinding, string[]>();
 
   constructor(private _records: ProtoRecord[], private _eventBindings: EventBinding[],
@@ -62,6 +64,7 @@ export class CodegenNameUtil {
     }
   }
 
+  /** @internal */
   _addFieldPrefix(name: string): string { return `${_FIELD_PREFIX}${name}`; }
 
   getDispatcherName(): string { return this._addFieldPrefix(_DISPATCHER_ACCESSOR); }
@@ -83,7 +86,7 @@ export class CodegenNameUtil {
   getLocalName(idx: number): string { return `l_${this._sanitizedNames[idx]}`; }
 
   getEventLocalName(eb: EventBinding, idx: number): string {
-    return `l_${MapWrapper.get(this._sanitizedEventNames, eb)[idx]}`;
+    return `l_${this._sanitizedEventNames.get(eb)[idx]}`;
   }
 
   getChangeName(idx: number): string { return `c_${this._sanitizedNames[idx]}`; }
@@ -109,8 +112,8 @@ export class CodegenNameUtil {
       }
     }
     var assignmentsCode =
-        ListWrapper.isEmpty(assignments) ? '' : `${ListWrapper.join(assignments, '=')} = false;`;
-    return `var ${ListWrapper.join(declarations, ',')};${assignmentsCode}`;
+        ListWrapper.isEmpty(assignments) ? '' : `${assignments.join('=')} = false;`;
+    return `var ${declarations.join(',')};${assignmentsCode}`;
   }
 
   /**
@@ -118,7 +121,7 @@ export class CodegenNameUtil {
    */
   genInitEventLocals(): string {
     var res = [`${this.getLocalName(CONTEXT_INDEX)} = ${this.getFieldName(CONTEXT_INDEX)}`];
-    MapWrapper.forEach(this._sanitizedEventNames, (names, eb) => {
+    this._sanitizedEventNames.forEach((names, eb) => {
       for (var i = 0; i < names.length; ++i) {
         if (i !== CONTEXT_INDEX) {
           res.push(`${this.getEventLocalName(eb, i)}`);
@@ -169,20 +172,16 @@ export class CodegenNameUtil {
 
     // At least one assignment.
     fields.push(`${this._utilName}.uninitialized;`);
-    return ListWrapper.join(fields, ' = ');
+    return fields.join(' = ');
   }
 
   /**
    * Generates statements destroying all pipe variables.
    */
   genPipeOnDestroy(): string {
-    return ListWrapper.join(
-        ListWrapper.map(
-            ListWrapper.filter(this._records, (r) => { return r.isPipeRecord(); }),
-            (r) => {
-              return `${this._utilName}.callPipeOnDestroy(${this.getPipeName(r.selfIndex)});`;
-            }),
-        '\n');
+    return ListWrapper.filter(this._records, (r) => { return r.isPipeRecord(); })
+        .map(r => `${this._utilName}.callPipeOnDestroy(${this.getPipeName(r.selfIndex)});`)
+        .join('\n');
   }
 
   getPipeName(idx: number): string {

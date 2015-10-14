@@ -12,31 +12,31 @@ import {
   View,
   ViewContainerRef,
   bind,
-  Binding,
+  provide,
+  Provider,
   NgIf,
   ViewMetadata
 } from 'angular2/core';
 
-import {CompilerCache} from 'angular2/src/core/compiler/compiler';
-import {
-  ChangeDetection,
-  DynamicChangeDetection
-} from 'angular2/src/core/change_detection/change_detection';
-import {ViewResolver} from 'angular2/src/core/compiler/view_resolver';
+import {ChangeDetectorGenConfig} from 'angular2/src/core/change_detection/change_detection';
+import {ViewResolver} from 'angular2/src/core/linker/view_resolver';
 
-import {getIntParameter, bindAction} from 'angular2/src/test_lib/benchmark_util';
+import {getIntParameter, bindAction} from 'angular2/src/testing/benchmark_util';
 
-function _createBindings(): Binding[] {
+function _createBindings(): Provider[] {
   var multiplyTemplatesBy = getIntParameter('elements');
   return [
-    bind(ViewResolver)
-        .toFactory(() => new MultiplyViewResolver(
-                       multiplyTemplatesBy,
-                       [BenchmarkComponentNoBindings, BenchmarkComponentWithBindings]),
-                   []),
+    provide(ViewResolver,
+            {
+              useFactory: () => new MultiplyViewResolver(
+                              multiplyTemplatesBy,
+                              [BenchmarkComponentNoBindings, BenchmarkComponentWithBindings]),
+              deps: []
+            }),
     // Use DynamicChangeDetector as that is the only one that Dart supports as well
     // so that we can compare the numbers between JS and Dart
-    bind(ChangeDetection).toClass(DynamicChangeDetection)
+    provide(ChangeDetectorGenConfig,
+            {useValue: new ChangeDetectorGenConfig(false, false, false, false)})
   ];
 }
 
@@ -68,13 +68,12 @@ function measureWrapper(func, desc) {
 
 class MultiplyViewResolver extends ViewResolver {
   _multiplyBy: number;
-  _cache: Map<Type, ViewMetadata>;
+  _cache = new Map<Type, ViewMetadata>();
 
   constructor(multiple: number, components: Type[]) {
     super();
     this._multiplyBy = multiple;
-    this._cache = new Map();
-    ListWrapper.forEach(components, (c) => this._fillCache(c));
+    components.forEach(c => this._fillCache(c));
   }
 
   _fillCache(component: Type) {
@@ -97,14 +96,14 @@ class MultiplyViewResolver extends ViewResolver {
 @Component({selector: 'app'})
 @View({directives: [], template: ``})
 class CompilerAppComponent {
-  constructor(private _compiler: Compiler, private _compilerCache: CompilerCache) {}
+  constructor(private _compiler: Compiler) {}
   compileNoBindings() {
-    this._compilerCache.clear();
+    this._compiler.clearCache();
     return this._compiler.compileInHost(BenchmarkComponentNoBindings);
   }
 
   compileWithBindings() {
-    this._compilerCache.clear();
+    this._compiler.clearCache();
     return this._compiler.compileInHost(BenchmarkComponentWithBindings);
   }
 }

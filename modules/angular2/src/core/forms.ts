@@ -34,19 +34,28 @@ export {
 } from './forms/directives/select_control_value_accessor';
 export {FORM_DIRECTIVES} from './forms/directives';
 export {NG_VALIDATORS, Validators} from './forms/validators';
-export {DefaultValidators} from './forms/directives/validators';
+export {
+  RequiredValidator,
+  MinLengthValidator,
+  MaxLengthValidator
+} from './forms/directives/validators';
 export {FormBuilder} from './forms/form_builder';
 
 import {FormBuilder} from './forms/form_builder';
 import {CONST_EXPR, Type} from './facade/lang';
 
 /**
- * Shorthand set of bindings used for building Angular forms.
+ * Shorthand set of providers used for building Angular forms.
  *
  * ### Example:
  *
  * ```typescript
- * bootstrap(MyApp, [FORM_BINDINGS]);
+ * bootstrap(MyApp, [FORM_PROVIDERS]);
  * ```
  */
-export const FORM_BINDINGS: Type[] = CONST_EXPR([FormBuilder]);
+export const FORM_PROVIDERS: Type[] = CONST_EXPR([FormBuilder]);
+
+/**
+ * @deprecated
+ */
+export const FORM_BINDINGS = FORM_PROVIDERS;

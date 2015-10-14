@@ -15,12 +15,12 @@ import {
   TestComponentBuilder,
   proxy,
   SpyObject
-} from 'angular2/test_lib';
+} from 'angular2/testing_internal';
 
 import {NumberWrapper} from 'angular2/src/core/facade/lang';
 import {PromiseWrapper} from 'angular2/src/core/facade/async';
 
-import {bind, Component, DirectiveResolver, View} from 'angular2/core';
+import {provide, Component, DirectiveResolver, View} from 'angular2/core';
 
 import {SpyLocation} from 'angular2/src/mock/location_mock';
 import {
@@ -48,10 +48,13 @@ export function main() {
     beforeEachBindings(() => [
       RouteRegistry,
       DirectiveResolver,
-      bind(Location).toClass(SpyLocation),
-      bind(Router)
-          .toFactory((registry, location) => { return new RootRouter(registry, location, MyComp); },
-                     [RouteRegistry, Location])
+      provide(Location, {useClass: SpyLocation}),
+      provide(Router,
+              {
+                useFactory:
+                    (registry, location) => { return new RootRouter(registry, location, MyComp); },
+                deps: [RouteRegistry, Location]
+              })
     ]);
 
     beforeEach(inject([TestComponentBuilder, Router, Location], (tcBuilder, rtr, loc) => {
