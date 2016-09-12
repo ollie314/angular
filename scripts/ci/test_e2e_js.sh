@@ -1,5 +1,5 @@
 #!/bin/bash
-set -e
+set -ex
 
 echo =============================================================================
 # go to project dir
@@ -14,8 +14,6 @@ function killServer () {
 
 ./node_modules/.bin/gulp serve.js.prod&
 serverPid=$!
-
-./node_modules/.bin/gulp build.css.material&
 
 trap killServer EXIT
 

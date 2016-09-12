@@ -1,9 +1,17 @@
-import {bootstrap} from 'angular2/bootstrap';
-import {NgIf, Component, View} from 'angular2/core';
-import {TimerWrapper} from 'angular2/src/core/facade/async';
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
 
-@Component({selector: 'async-app'})
-@View({
+import {Component, NgModule} from '@angular/core';
+import {BrowserModule} from '@angular/platform-browser';
+import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
+
+@Component({
+  selector: 'async-app',
   template: `
     <div id='increment'>
       <span class='val'>{{val1}}</span>
@@ -12,35 +20,34 @@ import {TimerWrapper} from 'angular2/src/core/facade/async';
     <div id='delayedIncrement'>
       <span class='val'>{{val2}}</span>
       <button class='action' (click)="delayedIncrement()">Delayed Increment</button>
-      <button class='cancel' *ng-if="timeoutId != null" (click)="cancelDelayedIncrement()">Cancel</button>
+      <button class='cancel' *ngIf="timeoutId != null" (click)="cancelDelayedIncrement()">Cancel</button>
     </div>
     <div id='multiDelayedIncrements'>
       <span class='val'>{{val3}}</span>
       <button class='action' (click)="multiDelayedIncrements(10)">10 Delayed Increments</button>
-      <button class='cancel' *ng-if="multiTimeoutId != null" (click)="cancelMultiDelayedIncrements()">Cancel</button>
+      <button class='cancel' *ngIf="multiTimeoutId != null" (click)="cancelMultiDelayedIncrements()">Cancel</button>
     </div>
     <div id='periodicIncrement'>
       <span class='val'>{{val4}}</span>
       <button class='action' (click)="periodicIncrement()">Periodic Increment</button>
-      <button class='cancel' *ng-if="intervalId != null" (click)="cancelPeriodicIncrement()">Cancel</button>
+      <button class='cancel' *ngIf="intervalId != null" (click)="cancelPeriodicIncrement()">Cancel</button>
     </div>
-  `,
-  directives: [NgIf]
+  `
 })
 class AsyncApplication {
   val1: number = 0;
   val2: number = 0;
   val3: number = 0;
   val4: number = 0;
-  timeoutId = null;
-  multiTimeoutId = null;
-  intervalId = null;
+  timeoutId: any /** TODO #9100 */ = null;
+  multiTimeoutId: any /** TODO #9100 */ = null;
+  intervalId: any /** TODO #9100 */ = null;
 
   increment(): void { this.val1++; };
 
   delayedIncrement(): void {
     this.cancelDelayedIncrement();
-    this.timeoutId = TimerWrapper.setTimeout(() => {
+    this.timeoutId = setTimeout(() => {
       this.val2++;
       this.timeoutId = null;
     }, 2000);
@@ -50,13 +57,13 @@ class AsyncApplication {
     this.cancelMultiDelayedIncrements();
 
     var self = this;
-    function helper(_i) {
+    function helper(_i: any /** TODO #9100 */) {
       if (_i <= 0) {
         self.multiTimeoutId = null;
         return;
       }
 
-      self.multiTimeoutId = TimerWrapper.setTimeout(() => {
+      self.multiTimeoutId = setTimeout(() => {
         self.val3++;
         helper(_i - 1);
       }, 500);
@@ -66,31 +73,36 @@ class AsyncApplication {
 
   periodicIncrement(): void {
     this.cancelPeriodicIncrement();
-    this.intervalId = TimerWrapper.setInterval(() => { this.val4++; }, 2000)
+    this.intervalId = setInterval(() => { this.val4++; }, 2000)
   };
 
   cancelDelayedIncrement(): void {
     if (this.timeoutId != null) {
-      TimerWrapper.clearTimeout(this.timeoutId);
+      clearTimeout(this.timeoutId);
       this.timeoutId = null;
     }
   };
 
   cancelMultiDelayedIncrements(): void {
     if (this.multiTimeoutId != null) {
-      TimerWrapper.clearTimeout(this.multiTimeoutId);
+      clearTimeout(this.multiTimeoutId);
       this.multiTimeoutId = null;
     }
   };
 
   cancelPeriodicIncrement(): void {
     if (this.intervalId != null) {
-      TimerWrapper.clearInterval(this.intervalId);
+      clearInterval(this.intervalId);
       this.intervalId = null;
     }
   };
 }
 
+@NgModule(
+    {declarations: [AsyncApplication], bootstrap: [AsyncApplication], imports: [BrowserModule]})
+class ExampleModule {
+}
+
 export function main() {
-  bootstrap(AsyncApplication);
+  platformBrowserDynamic().bootstrapModule(ExampleModule);
 }

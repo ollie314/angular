@@ -1,19 +1,15 @@
-import {bootstrap} from 'angular2/bootstrap';
-import {
-  NgIf,
-  NgFor,
-  Component,
-  Directive,
-  View,
-  Host,
-  forwardRef,
-  Provider,
-  FORM_DIRECTIVES,
-  Injectable
-} from 'angular2/core';
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
 
-import {CONST_EXPR} from 'angular2/src/core/facade/lang';
-
+import {Component, Injectable, NgModule} from '@angular/core';
+import {FormsModule} from '@angular/forms';
+import {BrowserModule} from '@angular/platform-browser';
+import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 
 /**
  * You can find the Angular 1 implementation of this example here:
@@ -55,16 +51,11 @@ class DataService {
 
   constructor() {
     this.persons = [
-      new Person('Victor', 'Savkin', 1930),
-      new Person('Igor', 'Minar', 1920),
-      new Person('John', 'Papa', 1910),
-      new Person('Nancy', 'Duarte', 1910),
-      new Person('Jack', 'Papa', 1910),
-      new Person('Jill', 'Papa', 1910),
-      new Person('Ward', 'Bell', 1910),
-      new Person('Robert', 'Bell', 1910),
-      new Person('Tracy', 'Ward', 1910),
-      new Person('Dan', 'Wahlin', 1910)
+      new Person('Victor', 'Savkin', 1930), new Person('Igor', 'Minar', 1920),
+      new Person('John', 'Papa', 1910), new Person('Nancy', 'Duarte', 1910),
+      new Person('Jack', 'Papa', 1910), new Person('Jill', 'Papa', 1910),
+      new Person('Ward', 'Bell', 1910), new Person('Robert', 'Bell', 1910),
+      new Person('Tracy', 'Ward', 1910), new Person('Dan', 'Wahlin', 1910)
     ];
 
     this.persons[0].friends = [0, 1, 2, 6, 9].map(_ => this.persons[_]);
@@ -86,21 +77,21 @@ class DataService {
 
 // ---- components
 
-@Component({selector: 'full-name-cmp'})
-@View({
+@Component({
+  selector: 'full-name-cmp',
   template: `
     <h1>Edit Full Name</h1>
     <div>
       <form>
           <div>
             <label>
-              First: <input [(ng-model)]="person.firstName" type="text" placeholder="First name">
+              First: <input [(ngModel)]="person.firstName" type="text" placeholder="First name">
             </label>
           </div>
 
           <div>
             <label>
-              Last: <input [(ng-model)]="person.lastName" type="text" placeholder="Last name">
+              Last: <input [(ngModel)]="person.lastName" type="text" placeholder="Last name">
             </label>
           </div>
 
@@ -109,77 +100,74 @@ class DataService {
           </div>
       </form>
     </div>
-  `,
-  directives: [FORM_DIRECTIVES]
+  `
 })
 class FullNameComponent {
   constructor(private _service: DataService) {}
   get person(): Person { return this._service.currentPerson; }
 }
 
-@Component({selector: 'person-detail-cmp'})
-@View({
+@Component({
+  selector: 'person-detail-cmp',
   template: `
     <h2>{{person.fullName}}</h2>
 
     <div>
       <form>
         <div>
-					<label>First: <input [(ng-model)]="person.firstName" type="text" placeholder="First name"></label>
+					<label>First: <input [(ngModel)]="person.firstName" type="text" placeholder="First name"></label>
 				</div>
 
         <div>
-					<label>Last: <input [(ng-model)]="person.lastName" type="text" placeholder="Last name"></label>
+					<label>Last: <input [(ngModel)]="person.lastName" type="text" placeholder="Last name"></label>
 				</div>
 
         <div>
-					<label>Year of birth: <input [(ng-model)]="person.yearOfBirth" type="number" placeholder="Year of birth"></label>
+					<label>Year of birth: <input [(ngModel)]="person.yearOfBirth" type="number" placeholder="Year of birth"></label>
           Age: {{person.age}}
 				</div>\
 
-        <div *ng-if="person.mom != null">
+        <div *ngIf="person.mom != null">
 					<label>Mom:</label>
-          <input [(ng-model)]="person.mom.firstName" type="text" placeholder="Mom's first name">
-          <input [(ng-model)]="person.mom.lastName" type="text" placeholder="Mom's last name">
+          <input [(ngModel)]="person.mom.firstName" type="text" placeholder="Mom's first name">
+          <input [(ngModel)]="person.mom.lastName" type="text" placeholder="Mom's last name">
           {{person.mom.fullName}}
 				</div>
 
-        <div *ng-if="person.dad != null">
+        <div *ngIf="person.dad != null">
 					<label>Dad:</label>
-          <input [(ng-model)]="person.dad.firstName" type="text" placeholder="Dad's first name">
-          <input [(ng-model)]="person.dad.lastName" type="text" placeholder="Dad's last name">
+          <input [(ngModel)]="person.dad.firstName" type="text" placeholder="Dad's first name">
+          <input [(ngModel)]="person.dad.lastName" type="text" placeholder="Dad's last name">
           {{person.dad.fullName}}
 				</div>
 
-        <div *ng-if="person.friends.length > 0">
+        <div *ngIf="person.friends.length > 0">
 					<label>Friends:</label>
           {{person.friendNames}}
 				</div>
       </form>
     </div>
-  `,
-  directives: [FORM_DIRECTIVES, NgIf]
+  `
 })
 class PersonsDetailComponent {
   constructor(private _service: DataService) {}
   get person(): Person { return this._service.currentPerson; }
 }
 
-@Component({selector: 'persons-cmp'})
-@View({
+@Component({
+  selector: 'persons-cmp',
   template: `
     <h1>FullName Demo</h1>
     <div>
       <ul>
-  		  <li *ng-for="#person of persons">
+  		  <li *ngFor="let person of persons">
   			  <label (click)="select(person)">{{person.fullName}}</label>
   			</li>
   	 </ul>
 
      <person-detail-cmp></person-detail-cmp>
     </div>
-  `,
-  directives: [FORM_DIRECTIVES, PersonsDetailComponent, NgFor]
+  `
 })
 class PersonsComponent {
   persons: Person[];
@@ -190,16 +178,16 @@ class PersonsComponent {
 }
 
 
-@Component({selector: 'person-management-app', viewBindings: [DataService]})
-@View({
+@Component({
+  selector: 'person-management-app',
+  viewProviders: [DataService],
   template: `
     <button (click)="switchToEditName()">Edit Full Name</button>
     <button (click)="switchToPersonList()">Person Array</button>
 
-    <full-name-cmp *ng-if="mode == 'editName'"></full-name-cmp>
-    <persons-cmp *ng-if="mode == 'personList'"></persons-cmp>
-  `,
-  directives: [FullNameComponent, PersonsComponent, NgIf]
+    <full-name-cmp *ngIf="mode == 'editName'"></full-name-cmp>
+    <persons-cmp *ngIf="mode == 'personList'"></persons-cmp>
+  `
 })
 class PersonManagementApplication {
   mode: string;
@@ -208,6 +196,15 @@ class PersonManagementApplication {
   switchToPersonList(): void { this.mode = 'personList'; }
 }
 
+@NgModule({
+  bootstrap: [PersonManagementApplication],
+  declarations:
+      [PersonManagementApplication, FullNameComponent, PersonsComponent, PersonsDetailComponent],
+  imports: [BrowserModule, FormsModule]
+})
+class ExampleModule {
+}
+
 export function main() {
-  bootstrap(PersonManagementApplication);
+  platformBrowserDynamic().bootstrapModule(ExampleModule);
 }

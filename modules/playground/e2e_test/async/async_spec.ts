@@ -1,7 +1,15 @@
-import {verifyNoBrowserErrors} from 'angular2/src/testing/e2e_util';
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+
+import {verifyNoBrowserErrors} from 'e2e_util/e2e_util';
 
 describe('async', () => {
-  var URL = 'playground/src/async/index.html';
+  var URL = 'all/playground/src/async/index.html';
 
   beforeEach(() => browser.get(URL));
 
@@ -56,6 +64,36 @@ describe('async', () => {
     // whenStable should only be called when all the async actions
     // finished, so the count should be 10 at this point.
     expect(timeout.$('.val').getText()).toEqual('10');
+  });
+
+  it('should wait via frameworkStabilizer', () => {
+    var whenAllStable = function() {
+      return browser.executeAsyncScript('window.frameworkStabilizers[0](arguments[0]);');
+    };
+
+    // This disables protractor's wait mechanism
+    browser.ignoreSynchronization = true;
+
+    var timeout = $('#multiDelayedIncrements');
+
+    // At this point, the async action is still pending, so the count should
+    // still be 0.
+    expect(timeout.$('.val').getText()).toEqual('0');
+
+    timeout.$('.action').click();
+
+    whenAllStable().then((didWork) => {
+      // whenAllStable should only be called when all the async actions
+      // finished, so the count should be 10 at this point.
+      expect(timeout.$('.val').getText()).toEqual('10');
+      expect(didWork).toBeTruthy();  // Work was done.
+    });
+
+    whenAllStable().then((didWork) => {
+      // whenAllStable should be called immediately since nothing is pending.
+      expect(didWork).toBeFalsy();  // No work was done.
+      browser.ignoreSynchronization = false;
+    });
   });
 
   afterEach(verifyNoBrowserErrors);

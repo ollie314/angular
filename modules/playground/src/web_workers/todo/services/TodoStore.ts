@@ -1,5 +1,13 @@
-import {Injectable} from 'angular2/web_worker/worker';
-import {ListWrapper, Predicate} from 'angular2/src/core/facade/collection';
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+
+import {Injectable} from '@angular/core';
+import {ListWrapper, Predicate} from '@angular/core/src/facade/collection';
 
 // base model for RecordStore
 export class KeyModel {
@@ -35,7 +43,7 @@ export class Store {
   remove(record: KeyModel): void { this._spliceOut(record); }
 
   removeBy(callback: Predicate<KeyModel>): void {
-    var records = ListWrapper.filter(this.list, callback);
+    var records = this.list.filter(callback);
     ListWrapper.removeAll(this.list, records);
   }
 

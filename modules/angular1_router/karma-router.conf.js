@@ -1,6 +1,6 @@
 'use strict';
 
-var sauceConf = require('../../sauce.conf');
+var browserProvidersConf = require('../../browser-providers.conf.js');
 
 // This runs the tests for the router in Angular 1.x
 
@@ -9,6 +9,7 @@ module.exports = function (config) {
     frameworks: ['jasmine'],
 
     files: [
+      '../../node_modules/core-js/client/core.js',
       '../../node_modules/angular/angular.js',
       '../../node_modules/angular-animate/angular-animate.js',
       '../../node_modules/angular-mocks/angular-mocks.js',
@@ -20,9 +21,9 @@ module.exports = function (config) {
       'test/**/*_spec.js'
     ],
 
-    customLaunchers: sauceConf.customLaunchers,
+    customLaunchers: browserProvidersConf.customLaunchers,
 
-    browsers: ['ChromeCanary']
+    browsers: ['Chrome']
   };
 
   config.set(options);
