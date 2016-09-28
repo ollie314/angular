@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Compiler, ComponentFactory, ComponentFactoryResolver, Injector, NgModule, NgModuleRef, NgZone, Provider, Testability, Type} from '@angular/core';
+import {Compiler, ComponentFactory, Injector, NgModule, NgModuleRef, NgZone, Provider, Testability, Type} from '@angular/core';
 import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 
 import * as angular from './angular_js';
@@ -60,7 +60,7 @@ var upgradeCount: number = 0;
  * ```
  * var adapter = new UpgradeAdapter(forwardRef(() => MyNg2Module));
  * var module = angular.module('myExample', []);
- * module.directive('ng2Comp', adapter.downgradeNg2Component(Ng2));
+ * module.directive('ng2Comp', adapter.downgradeNg2Component(Ng2Component));
  *
  * module.directive('ng1Hello', function() {
  *   return {
@@ -237,17 +237,17 @@ export class UpgradeAdapter {
    *   };
    * });
    *
-   * module.directive('ng2', adapter.downgradeNg2Component(Ng2));
+   * module.directive('ng2', adapter.downgradeNg2Component(Ng2Component));
    *
    * @Component({
    *   selector: 'ng2',
    *   template: 'ng2 template: <greet salutation="Hello" [name]="world">text</greet>'
    * })
-   * class Ng2 {
+   * class Ng2Component {
    * }
    *
    * @NgModule({
-   *   declarations: [Ng2, adapter.upgradeNg1Component('greet')],
+   *   declarations: [Ng2Component, adapter.upgradeNg1Component('greet')],
    *   imports: [BrowserModule]
    * })
    * class MyNg2Module {}
@@ -480,7 +480,6 @@ export class UpgradeAdapter {
    * var adapter = new UpgradeAdapter();
    * adapter.upgradeNg1Provider('server');
    * adapter.upgradeNg1Provider('login', {asToken: Login});
-   * adapter.addProvider(Example);
    *
    * adapter.bootstrap(document.body, ['myExample']).ready((ref) => {
    *   var example: Example = ref.ng2Injector.get(Example);
@@ -508,7 +507,6 @@ export class UpgradeAdapter {
    * }
    *
    * var adapter = new UpgradeAdapter();
-   * adapter.addProvider(Example);
    *
    * var module = angular.module('myExample', []);
    * module.factory('example', adapter.downgradeNg2Provider(Example));

@@ -6,14 +6,15 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {ChangeDetectionStrategy, ViewEncapsulation} from '@angular/core';
-import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompileTokenMetadata, CompileTypeMetadata} from '../compile_metadata';
-import {ListWrapper, SetWrapper, StringMapWrapper} from '../facade/collection';
+import {ViewEncapsulation} from '@angular/core';
+
+import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompileTokenMetadata} from '../compile_metadata';
+import {ListWrapper, StringMapWrapper} from '../facade/collection';
 import {StringWrapper, isPresent} from '../facade/lang';
-import {Identifiers, identifierToken, resolveIdentifier, resolveIdentifierToken} from '../identifiers';
+import {Identifiers, identifierToken, resolveIdentifier} from '../identifiers';
 import * as o from '../output/output_ast';
 import {ChangeDetectorStatus, ViewType, isDefaultChangeDetectionStrategy} from '../private_import_core';
-import {AttrAst, BoundDirectivePropertyAst, BoundElementPropertyAst, BoundEventAst, BoundTextAst, DirectiveAst, ElementAst, EmbeddedTemplateAst, NgContentAst, ProviderAst, ReferenceAst, TemplateAst, TemplateAstVisitor, TextAst, VariableAst, templateVisitAll} from '../template_parser/template_ast';
+import {AttrAst, BoundDirectivePropertyAst, BoundElementPropertyAst, BoundEventAst, BoundTextAst, DirectiveAst, ElementAst, EmbeddedTemplateAst, NgContentAst, ReferenceAst, TemplateAst, TemplateAstVisitor, TextAst, VariableAst, templateVisitAll} from '../template_parser/template_ast';
 import {createDiTokenExpression} from '../util';
 
 import {CompileElement, CompileNode} from './compile_element';
@@ -513,18 +514,19 @@ function createViewFactory(
   }
   if (view.viewIndex === 0) {
     var animationsExpr = o.literalMap(view.animations.map(entry => [entry.name, entry.fnExp]));
-    initRenderCompTypeStmts = [new o.IfStmt(renderCompTypeVar.identical(o.NULL_EXPR), [
-      renderCompTypeVar
-          .set(ViewConstructorVars.viewUtils.callMethod(
-              'createRenderComponentType',
-              [
-                o.literal(templateUrlInfo),
-                o.literal(view.component.template.ngContentSelectors.length),
-                ViewEncapsulationEnum.fromValue(view.component.template.encapsulation), view.styles,
-                animationsExpr
-              ]))
-          .toStmt()
-    ])];
+    initRenderCompTypeStmts = [new o.IfStmt(
+        renderCompTypeVar.identical(o.NULL_EXPR),
+        [renderCompTypeVar
+             .set(ViewConstructorVars.viewUtils.callMethod(
+                 'createRenderComponentType',
+                 [
+                   view.genConfig.genDebugInfo ? o.literal(templateUrlInfo) : o.literal(''),
+                   o.literal(view.component.template.ngContentSelectors.length),
+                   ViewEncapsulationEnum.fromValue(view.component.template.encapsulation),
+                   view.styles,
+                   animationsExpr,
+                 ]))
+             .toStmt()])];
   }
   return o
       .fn(viewFactoryArgs, initRenderCompTypeStmts.concat([new o.ReturnStatement(
@@ -596,15 +598,15 @@ function generateDetectChangesMethod(view: CompileView): o.Statement[] {
 
   var varStmts: any[] = [];
   var readVars = o.findReadVarNames(stmts);
-  if (SetWrapper.has(readVars, DetectChangesVars.changed.name)) {
+  if (readVars.has(DetectChangesVars.changed.name)) {
     varStmts.push(DetectChangesVars.changed.set(o.literal(true)).toDeclStmt(o.BOOL_TYPE));
   }
-  if (SetWrapper.has(readVars, DetectChangesVars.changes.name)) {
+  if (readVars.has(DetectChangesVars.changes.name)) {
     varStmts.push(
         DetectChangesVars.changes.set(o.NULL_EXPR)
             .toDeclStmt(new o.MapType(o.importType(resolveIdentifier(Identifiers.SimpleChange)))));
   }
-  if (SetWrapper.has(readVars, DetectChangesVars.valUnwrapper.name)) {
+  if (readVars.has(DetectChangesVars.valUnwrapper.name)) {
     varStmts.push(
         DetectChangesVars.valUnwrapper
             .set(o.importExpr(resolveIdentifier(Identifiers.ValueUnwrapper)).instantiate([]))

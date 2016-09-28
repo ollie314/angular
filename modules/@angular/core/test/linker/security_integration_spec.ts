@@ -8,7 +8,7 @@
 
 import {Component, Directive, Input, NO_ERRORS_SCHEMA} from '@angular/core';
 import {ComponentFixture, TestBed, getTestBed} from '@angular/core/testing';
-import {afterEach, beforeEach, beforeEachProviders, ddescribe, describe, expect, iit, inject, it} from '@angular/core/testing/testing_internal';
+import {afterEach, beforeEach, describe, expect, it} from '@angular/core/testing/testing_internal';
 import {getDOM} from '@angular/platform-browser/src/dom/dom_adapter';
 import {DomSanitizer} from '@angular/platform-browser/src/security/dom_sanitization_service';
 
@@ -66,7 +66,7 @@ function declareTests({useJit}: {useJit: boolean}) {
 
         expect(() => TestBed.createComponent(SecuredComponent))
             .toThrowError(
-                /Binding to event attribute 'onclick' is disallowed for security reasons, please use \(click\)=.../);
+                /Binding to event property 'onclick' is disallowed for security reasons, please use \(click\)=.../);
       });
 
       it('should disallow binding to on* unless it is consumed by a directive', () => {
