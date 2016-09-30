@@ -7,7 +7,6 @@
  */
 
 import {CssRule, ShadowCss, processRules} from '@angular/compiler/src/shadow_css';
-import {describe, expect, it} from '@angular/core/testing/testing_internal';
 import {normalizeCSS} from '@angular/platform-browser/testing/browser_util';
 
 export function main() {
@@ -92,6 +91,7 @@ export function main() {
       expect(s('one[attr*="value"] {}', 'a')).toEqual('one[attr*="value"][a] {}');
       expect(s('one[attr|="value"] {}', 'a')).toEqual('one[attr|="value"][a] {}');
       expect(s('one[attr~="value"] {}', 'a')).toEqual('one[attr~="value"][a] {}');
+      expect(s('one[attr="va lue"] {}', 'a')).toEqual('one[attr="va lue"][a] {}');
       expect(s('one[attr] {}', 'a')).toEqual('one[attr][a] {}');
       expect(s('[is="one"] {}', 'a')).toEqual('[is="one"][a] {}');
     });
