@@ -52,6 +52,18 @@ export function main() {
       expect(s(css, 'a')).toEqual(expected);
     });
 
+    it('should handle page rules', () => {
+      const css = '@page {div {font-size:50px;}}';
+      const expected = '@page {div[a] {font-size:50px;}}';
+      expect(s(css, 'a')).toEqual(expected);
+    });
+
+    it('should handle document rules', () => {
+      const css = '@document url(http://www.w3.org/) {div {font-size:50px;}}';
+      const expected = '@document url(http://www.w3.org/) {div[a] {font-size:50px;}}';
+      expect(s(css, 'a')).toEqual(expected);
+    });
+
     it('should handle media rules with simple rules', () => {
       const css = '@media screen and (max-width: 800px) {div {font-size: 50px;}} div {}';
       const expected = '@media screen and (max-width:800px) {div[a] {font-size:50px;}} div[a] {}';
@@ -99,16 +111,27 @@ export function main() {
     it('should handle :host', () => {
       expect(s(':host {}', 'a', 'a-host')).toEqual('[a-host] {}');
 
-      expect(s(':host(.x,.y) {}', 'a', 'a-host')).toEqual('[a-host].x, [a-host].y {}');
+      expect(s(':host(.x) {}', 'a', 'a-host')).toEqual('.x[a-host] {}');
+      expect(s(':host(ul) {}', 'a', 'a-host')).toEqual('ul[a-host] {}');
+
+      expect(s(':host(.x,.y) {}', 'a', 'a-host')).toEqual('.x[a-host], .y[a-host] {}');
+      expect(s(':host(ul,li) {}', 'a', 'a-host')).toEqual('ul[a-host], li[a-host] {}');
 
       expect(s(':host(.x,.y) > .z {}', 'a', 'a-host'))
-          .toEqual('[a-host].x > .z[a], [a-host].y > .z[a] {}');
+          .toEqual('.x[a-host] > .z[a], .y[a-host] > .z[a] {}');
+      expect(s(':host(ul,li) > .z {}', 'a', 'a-host'))
+          .toEqual('ul[a-host] > .z[a], li[a-host] > .z[a] {}');
     });
 
     it('should handle :host-context', () => {
-      expect(s(':host-context(.x) {}', 'a', 'a-host')).toEqual('[a-host].x, .x [a-host] {}');
+      expect(s(':host-context(.x) {}', 'a', 'a-host')).toEqual('.x[a-host], .x [a-host] {}');
+      expect(s(':host-context(div) {}', 'a', 'a-host')).toEqual('div[a-host], div [a-host] {}');
+
       expect(s(':host-context(.x) > .y {}', 'a', 'a-host'))
-          .toEqual('[a-host].x > .y[a], .x [a-host] > .y[a] {}');
+          .toEqual('.x[a-host] > .y[a], .x [a-host] > .y[a] {}');
+      expect(s(':host-context(ul) > .y {}', 'a', 'a-host'))
+          .toEqual('ul[a-host] > .y[a], ul [a-host] > .y[a] {}');
+
     });
 
     it('should support polyfill-next-selector', () => {
@@ -117,6 +140,9 @@ export function main() {
 
       css = s('polyfill-next-selector {content: "x > y"} z {}', 'a');
       expect(css).toEqual('x[a] > y[a]{}');
+
+      css = s(`polyfill-next-selector {content: 'button[priority="1"]'} z {}`, 'a');
+      expect(css).toEqual('button[priority="1"][a] {}');
     });
 
     it('should support polyfill-unscoped-rule', () => {
@@ -125,6 +151,9 @@ export function main() {
 
       css = s('polyfill-unscoped-rule {content: "#menu > .bar";color: blue;}', 'a');
       expect(css).toContain('#menu > .bar {;color:blue;}');
+
+      css = s(`polyfill-unscoped-rule {content: 'button[priority="1"]'}`, 'a');
+      expect(css).toContain('button[priority="1"] {}');
     });
 
     it('should support multiple instances polyfill-unscoped-rule', () => {
@@ -138,10 +167,13 @@ export function main() {
 
     it('should support polyfill-rule', () => {
       let css = s('polyfill-rule {content: \':host.foo .bar\';color: blue;}', 'a', 'a-host');
-      expect(css).toEqual('[a-host].foo .bar[a] {;color:blue;}');
+      expect(css).toEqual('.foo[a-host] .bar[a] {;color:blue;}');
 
       css = s('polyfill-rule {content: ":host.foo .bar";color:blue;}', 'a', 'a-host');
-      expect(css).toEqual('[a-host].foo .bar[a] {;color:blue;}');
+      expect(css).toEqual('.foo[a-host] .bar[a] {;color:blue;}');
+
+      css = s(`polyfill-rule {content: 'button[priority="1"]'}`, 'a', 'a-host');
+      expect(css).toEqual('button[priority="1"][a] {}');
     });
 
     it('should handle ::shadow', () => {
@@ -196,8 +228,8 @@ export function main() {
   describe('processRules', () => {
     describe('parse rules', () => {
       function captureRules(input: string): CssRule[] {
-        const result: any[] /** TODO #9100 */ = [];
-        processRules(input, (cssRule: any /** TODO #9100 */) => {
+        const result: CssRule[] = [];
+        processRules(input, (cssRule) => {
           result.push(cssRule);
           return cssRule;
         });
@@ -228,15 +260,15 @@ export function main() {
     describe('modify rules', () => {
       it('should allow to change the selector while preserving whitespaces', () => {
         expect(processRules(
-                   '@import a; b {c {d}} e {f}', (cssRule: any /** TODO #9100 */) => new CssRule(
-                                                     cssRule.selector + '2', cssRule.content)))
+                   '@import a; b {c {d}} e {f}',
+                   (cssRule: CssRule) => new CssRule(cssRule.selector + '2', cssRule.content)))
             .toEqual('@import a2; b2 {c {d}} e2 {f}');
       });
 
       it('should allow to change the content', () => {
         expect(processRules(
-                   'a {b}', (cssRule: any /** TODO #9100 */) =>
-                                new CssRule(cssRule.selector, cssRule.content + '2')))
+                   'a {b}',
+                   (cssRule: CssRule) => new CssRule(cssRule.selector, cssRule.content + '2')))
             .toEqual('a {b2}');
       });
     });
