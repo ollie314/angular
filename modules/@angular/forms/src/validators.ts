@@ -96,7 +96,6 @@ export class Validators {
    */
   static pattern(pattern: string): ValidatorFn {
     return (control: AbstractControl): {[key: string]: any} => {
-      if (isPresent(Validators.required(control))) return null;
       let regex = new RegExp(`^${pattern}$`);
       let v: string = control.value;
       return regex.test(v) ? null :
@@ -152,5 +151,5 @@ function _mergeErrors(arrayOfErrors: any[]): {[key: string]: any} {
       arrayOfErrors.reduce((res: {[key: string]: any}, errors: {[key: string]: any}) => {
         return isPresent(errors) ? StringMapWrapper.merge(res, errors) : res;
       }, {});
-  return StringMapWrapper.isEmpty(res) ? null : res;
+  return Object.keys(res).length === 0 ? null : res;
 }

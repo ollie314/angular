@@ -7,7 +7,6 @@
  */
 
 import {CompileTokenMetadata} from './compile_metadata';
-import {StringMapWrapper} from './facade/collection';
 import {StringWrapper, isArray, isBlank, isPresent, isPrimitive, isStrictStringMap} from './facade/lang';
 import * as o from './output/output_ast';
 
@@ -17,7 +16,7 @@ var CAMEL_CASE_REGEXP = /([A-Z])/g;
 
 export function camelCaseToDashCase(input: string): string {
   return StringWrapper.replaceAllMapped(
-      input, CAMEL_CASE_REGEXP, (m: string[]) => { return '-' + m[1].toLowerCase(); });
+      input, CAMEL_CASE_REGEXP, (m: string[]) => '-' + m[1].toLowerCase());
 }
 
 export function splitAtColon(input: string, defaultValues: string[]): string[] {
@@ -63,9 +62,8 @@ export class ValueTransformer implements ValueVisitor {
   }
   visitStringMap(map: {[key: string]: any}, context: any): any {
     var result = {};
-    StringMapWrapper.forEach(map, (value: any /** TODO #9100 */, key: any /** TODO #9100 */) => {
-      (result as any /** TODO #9100 */)[key] = visitValue(value, this, context);
-    });
+    Object.keys(map).forEach(
+        key => { (result as any /** TODO #9100 */)[key] = visitValue(map[key], this, context); });
     return result;
   }
   visitPrimitive(value: any, context: any): any { return value; }

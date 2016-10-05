@@ -12,7 +12,6 @@ import {expect} from '@angular/platform-browser/testing/matchers';
 
 import {AnimationEntryAst, AnimationGroupAst, AnimationKeyframeAst, AnimationSequenceAst, AnimationStepAst, AnimationStylesAst} from '../../src/animation/animation_ast';
 import {AnimationParser} from '../../src/animation/animation_parser';
-import {StringMapWrapper} from '../../src/facade/collection';
 import {CompileMetadataResolver} from '../../src/metadata_resolver';
 import {FILL_STYLE_FLAG, flattenStyles} from '../private_import_core';
 
@@ -21,15 +20,13 @@ export function main() {
     var combineStyles = (styles: AnimationStylesAst): {[key: string]: string | number} => {
       var flatStyles: {[key: string]: string | number} = {};
       styles.styles.forEach(
-          entry => StringMapWrapper.forEach(
-              entry, (val: any /** TODO #9100 */, prop: any /** TODO #9100 */) => {
-                flatStyles[prop] = val;
-              }));
+          entry => Object.keys(entry).forEach(prop => { flatStyles[prop] = entry[prop]; }));
       return flatStyles;
     };
 
-    var collectKeyframeStyles = (keyframe: AnimationKeyframeAst):
-        {[key: string]: string | number} => { return combineStyles(keyframe.styles); };
+    var collectKeyframeStyles =
+        (keyframe: AnimationKeyframeAst): {[key: string]: string | number} =>
+            combineStyles(keyframe.styles);
 
     var collectStepStyles = (step: AnimationStepAst): Array<{[key: string]: string | number}> => {
       var keyframes = step.keyframes;
@@ -55,9 +52,8 @@ export function main() {
     var getAnimationAstFromEntryAst =
         (ast: AnimationEntryAst) => { return ast.stateTransitions[0].animation; };
 
-    var parseAnimationAst = (data: AnimationMetadata[]) => {
-      return getAnimationAstFromEntryAst(parseAnimation(data).ast);
-    };
+    var parseAnimationAst = (data: AnimationMetadata[]) =>
+        getAnimationAstFromEntryAst(parseAnimation(data).ast);
 
     var parseAnimationAndGetErrors = (data: AnimationMetadata[]) => parseAnimation(data).errors;
 
