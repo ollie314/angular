@@ -10,7 +10,7 @@ import {ViewEncapsulation} from '@angular/core';
 
 import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompileTokenMetadata} from '../compile_metadata';
 import {ListWrapper} from '../facade/collection';
-import {StringWrapper, isPresent} from '../facade/lang';
+import {isPresent} from '../facade/lang';
 import {Identifiers, identifierToken, resolveIdentifier} from '../identifiers';
 import * as o from '../output/output_ast';
 import {ChangeDetectorStatus, ViewType, isDefaultChangeDetectionStrategy} from '../private_import_core';
@@ -79,10 +79,10 @@ class ViewBuilderVisitor implements TemplateAstVisitor {
     if (this._isRootNode(parent)) {
       // store appElement as root node only for ViewContainers
       if (this.view.viewType !== ViewType.COMPONENT) {
-        this.view.rootNodesOrAppElements.push(isPresent(vcAppEl) ? vcAppEl : node.renderNode);
+        this.view.rootNodesOrAppElements.push(vcAppEl || node.renderNode);
       }
     } else if (isPresent(parent.component) && isPresent(ngContentIndex)) {
-      parent.addContentNode(ngContentIndex, isPresent(vcAppEl) ? vcAppEl : node.renderNode);
+      parent.addContentNode(ngContentIndex, vcAppEl || node.renderNode);
     }
   }
 
@@ -376,7 +376,7 @@ function mapToKeyValueArray(data: {[key: string]: string}): string[][] {
   Object.keys(data).forEach(name => { entryArray.push([name, data[name]]); });
   // We need to sort to get a defined output order
   // for tests and for caching generated artifacts...
-  ListWrapper.sort(entryArray, (entry1, entry2) => StringWrapper.compare(entry1[0], entry2[0]));
+  ListWrapper.sort(entryArray);
   return entryArray;
 }
 
@@ -511,10 +511,13 @@ function createViewFactory(
     templateUrlInfo = view.component.template.templateUrl;
   }
   if (view.viewIndex === 0) {
-    var animationsExpr = o.literalMap(view.animations.map(entry => [entry.name, entry.fnExp]));
-    initRenderCompTypeStmts = [new o.IfStmt(
+    var animationsExpr = o.literalMap(
+        view.animations.map((entry): [string, o.Expression] => [entry.name, entry.fnExp]));
+    initRenderCompTypeStmts = [
+      new o.IfStmt(
         renderCompTypeVar.identical(o.NULL_EXPR),
-        [renderCompTypeVar
+        [
+          renderCompTypeVar
              .set(ViewConstructorVars.viewUtils.callMethod(
                  'createRenderComponentType',
                  [
@@ -524,13 +527,16 @@ function createViewFactory(
                    view.styles,
                    animationsExpr,
                  ]))
-             .toStmt()])];
+             .toStmt(),
+        ]),
+    ];
   }
   return o
-      .fn(viewFactoryArgs, initRenderCompTypeStmts.concat([new o.ReturnStatement(
-                               o.variable(viewClass.name)
-                                   .instantiate(viewClass.constructorMethod.params.map(
-                                       (param) => o.variable(param.name))))]),
+      .fn(viewFactoryArgs, initRenderCompTypeStmts.concat([
+        new o.ReturnStatement(o.variable(viewClass.name)
+                                  .instantiate(viewClass.constructorMethod.params.map(
+                                      (param) => o.variable(param.name)))),
+      ]),
           o.importType(resolveIdentifier(Identifiers.AppView), [getContextType(view)]))
       .toDeclStmt(view.viewFactory.name, [o.StmtModifier.Final]);
 }

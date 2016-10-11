@@ -7,7 +7,7 @@
  */
 
 import {CompileDirectiveMetadata} from '../compile_metadata';
-import {StringWrapper, isPresent} from '../facade/lang';
+import {isPresent} from '../facade/lang';
 import {identifierToken} from '../identifiers';
 import * as o from '../output/output_ast';
 import {BoundEventAst, DirectiveAst} from '../template_parser/template_ast';
@@ -46,7 +46,7 @@ export class CompileEventListener {
       public eventPhase: string, listenerIndex: number) {
     this._method = new CompileMethod(compileElement.view);
     this._methodName =
-        `_handle_${santitizeEventName(eventName)}_${compileElement.nodeIndex}_${listenerIndex}`;
+        `_handle_${sanitizeEventName(eventName)}_${compileElement.nodeIndex}_${listenerIndex}`;
     this._eventParam = new o.FnParam(
         EventHandlerVars.event.name,
         o.importType(this.compileElement.view.genConfig.renderTypes.renderEvent));
@@ -59,8 +59,7 @@ export class CompileEventListener {
       this._hasComponentHostListener = true;
     }
     this._method.resetDebugInfo(this.compileElement.nodeIndex, hostEvent);
-    var context = isPresent(directiveInstance) ? directiveInstance :
-                                                 this.compileElement.view.componentContext;
+    var context = directiveInstance || this.compileElement.view.componentContext;
     var actionStmts = convertCdStatementToIr(
         this.compileElement.view, context, hostEvent.handler, this.compileElement.nodeIndex);
     var lastIndex = actionStmts.length - 1;
@@ -96,7 +95,7 @@ export class CompileEventListener {
   }
 
   listenToRenderer() {
-    var listenExpr: any /** TODO #9100 */;
+    var listenExpr: o.Expression;
     var eventListener = o.THIS_EXPR.callMethod(
         'eventHandler',
         [o.THIS_EXPR.prop(this._methodName).callMethod(o.BuiltinMethod.Bind, [o.THIS_EXPR])]);
@@ -148,13 +147,15 @@ export class CompileEventListener {
 export function collectEventListeners(
     hostEvents: BoundEventAst[], dirs: DirectiveAst[],
     compileElement: CompileElement): CompileEventListener[] {
-  var eventListeners: CompileEventListener[] = [];
+  const eventListeners: CompileEventListener[] = [];
+
   hostEvents.forEach((hostEvent) => {
     compileElement.view.bindings.push(new CompileBinding(compileElement, hostEvent));
     var listener = CompileEventListener.getOrCreate(
         compileElement, hostEvent.target, hostEvent.name, hostEvent.phase, eventListeners);
     listener.addAction(hostEvent, null, null);
   });
+
   dirs.forEach((directiveAst) => {
     var directiveInstance =
         compileElement.instances.get(identifierToken(directiveAst.directive.type).reference);
@@ -165,6 +166,7 @@ export function collectEventListeners(
       listener.addAction(hostEvent, directiveAst.directive, directiveInstance);
     });
   });
+
   eventListeners.forEach((listener) => listener.finishMethod());
   return eventListeners;
 }
@@ -174,6 +176,7 @@ export function bindDirectiveOutputs(
     eventListeners: CompileEventListener[]) {
   Object.keys(directiveAst.directive.outputs).forEach(observablePropName => {
     const eventName = directiveAst.directive.outputs[observablePropName];
+
     eventListeners.filter(listener => listener.eventName == eventName).forEach((listener) => {
       listener.listenToDirective(directiveInstance, observablePropName);
     });
@@ -199,6 +202,6 @@ function convertStmtIntoExpression(stmt: o.Statement): o.Expression {
   return null;
 }
 
-function santitizeEventName(name: string): string {
-  return StringWrapper.replaceAll(name, /[^a-zA-Z_]/g, '_');
+function sanitizeEventName(name: string): string {
+  return name.replace(/[^a-zA-Z_]/g, '_');
 }

@@ -215,7 +215,7 @@ export class ReadVarExpr extends Expression {
 export class WriteVarExpr extends Expression {
   public value: Expression;
   constructor(public name: string, value: Expression, type: Type = null) {
-    super(isPresent(type) ? type : value.type);
+    super(type || value.type);
     this.value = value;
   }
 
@@ -233,7 +233,7 @@ export class WriteKeyExpr extends Expression {
   public value: Expression;
   constructor(
       public receiver: Expression, public index: Expression, value: Expression, type: Type = null) {
-    super(isPresent(type) ? type : value.type);
+    super(type || value.type);
     this.value = value;
   }
   visitExpression(visitor: ExpressionVisitor, context: any): any {
@@ -246,7 +246,7 @@ export class WritePropExpr extends Expression {
   public value: Expression;
   constructor(
       public receiver: Expression, public name: string, value: Expression, type: Type = null) {
-    super(isPresent(type) ? type : value.type);
+    super(type || value.type);
     this.value = value;
   }
   visitExpression(visitor: ExpressionVisitor, context: any): any {
@@ -322,7 +322,7 @@ export class ConditionalExpr extends Expression {
   constructor(
       public condition: Expression, trueCase: Expression, public falseCase: Expression = null,
       type: Type = null) {
-    super(isPresent(type) ? type : trueCase.type);
+    super(type || trueCase.type);
     this.trueCase = trueCase;
   }
   visitExpression(visitor: ExpressionVisitor, context: any): any {
@@ -369,7 +369,7 @@ export class BinaryOperatorExpr extends Expression {
   public lhs: Expression;
   constructor(
       public operator: BinaryOperator, lhs: Expression, public rhs: Expression, type: Type = null) {
-    super(isPresent(type) ? type : lhs.type);
+    super(type || lhs.type);
     this.lhs = lhs;
   }
   visitExpression(visitor: ExpressionVisitor, context: any): any {
@@ -416,7 +416,7 @@ export class LiteralArrayExpr extends Expression {
 
 export class LiteralMapExpr extends Expression {
   public valueType: Type = null;
-  constructor(public entries: Array<Array<string|Expression>>, type: MapType = null) {
+  constructor(public entries: [string, Expression][], type: MapType = null) {
     super(type);
     if (isPresent(type)) {
       this.valueType = type.valueType;
@@ -479,7 +479,7 @@ export class DeclareVarStmt extends Statement {
       public name: string, public value: Expression, type: Type = null,
       modifiers: StmtModifier[] = null) {
     super(modifiers);
-    this.type = isPresent(type) ? type : value.type;
+    this.type = type || value.type;
   }
 
   visitStatement(visitor: StatementVisitor, context: any): any {
@@ -625,7 +625,7 @@ export class ExpressionTransformer implements StatementVisitor, ExpressionVisito
         expr.value.visitExpression(this, context));
   }
   visitInvokeMethodExpr(ast: InvokeMethodExpr, context: any): any {
-    var method = isPresent(ast.builtin) ? ast.builtin : ast.name;
+    var method = ast.builtin || ast.name;
     return new InvokeMethodExpr(
         ast.receiver.visitExpression(this, context), method,
         this.visitAllExpressions(ast.args, context), ast.type);
@@ -673,9 +673,11 @@ export class ExpressionTransformer implements StatementVisitor, ExpressionVisito
   visitLiteralArrayExpr(ast: LiteralArrayExpr, context: any): any {
     return new LiteralArrayExpr(this.visitAllExpressions(ast.entries, context));
   }
+
   visitLiteralMapExpr(ast: LiteralMapExpr, context: any): any {
-    return new LiteralMapExpr(ast.entries.map(
-        (entry) => [entry[0], (<Expression>entry[1]).visitExpression(this, context)]));
+    const entries = ast.entries.map(
+        (entry): [string, Expression] => [entry[0], entry[1].visitExpression(this, context), ]);
+    return new LiteralMapExpr(entries);
   }
   visitAllExpressions(exprs: Expression[], context: any): Expression[] {
     return exprs.map(expr => expr.visitExpression(this, context));
@@ -881,8 +883,7 @@ export function literalArr(values: Expression[], type: Type = null): LiteralArra
   return new LiteralArrayExpr(values, type);
 }
 
-export function literalMap(
-    values: Array<Array<string|Expression>>, type: MapType = null): LiteralMapExpr {
+export function literalMap(values: [string, Expression][], type: MapType = null): LiteralMapExpr {
   return new LiteralMapExpr(values, type);
 }
 

@@ -292,6 +292,19 @@ describe('applyRedirects', () => {
               },
               (e) => { throw 'Should not reach'; });
     });
+
+    it('should load the configuration of a wildcard route', () => {
+      const loadedConfig = new LoadedRouterConfig(
+          [{path: '', component: ComponentB}], <any>'stubInjector', <any>'stubFactoryResolver');
+
+      const loader = {load: (injector: any, p: any) => of (loadedConfig)};
+
+      const config = [{path: '**', loadChildren: 'children'}];
+
+      applyRedirects(<any>'providedInjector', <any>loader, tree('xyz'), config).forEach(r => {
+        expect((<any>config[0])._loadedConfig).toBe(loadedConfig);
+      });
+    });
   });
 
   describe('empty paths', () => {
@@ -340,7 +353,7 @@ describe('applyRedirects', () => {
       applyRedirects(null, null, tree('b'), config)
           .subscribe(
               (_) => { throw 'Should not be reached'; },
-              e => { expect(e.message).toEqual('Cannot match any routes: \'b\''); });
+              e => { expect(e.message).toEqual('Cannot match any routes. URL Segment: \'b\''); });
     });
 
     it('redirect from an empty path should work (nested case)', () => {
@@ -470,7 +483,7 @@ describe('applyRedirects', () => {
         applyRedirects(null, null, tree('a/(d//aux:e)'), config)
             .subscribe(
                 (_) => { throw 'Should not be reached'; },
-                e => { expect(e.message).toEqual('Cannot match any routes: \'a\''); });
+                e => { expect(e.message).toEqual('Cannot match any routes. URL Segment: \'a\''); });
       });
     });
   });
