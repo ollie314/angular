@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {global, isFunction, isPresent, stringify} from '../facade/lang';
+import {global, isPresent, stringify} from '../facade/lang';
 import {Type} from '../type';
 
 import {PlatformReflectionCapabilities} from './platform_reflection_capabilities';
@@ -81,7 +81,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
     // Prefer the direct API.
     if ((<any>typeOrFunc).annotations) {
       let annotations = (<any>typeOrFunc).annotations;
-      if (isFunction(annotations) && annotations.annotations) {
+      if (typeof annotations === 'function' && annotations.annotations) {
         annotations = annotations.annotations;
       }
       return annotations;
@@ -104,7 +104,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
     // Prefer the direct API.
     if ((<any>typeOrFunc).propMetadata) {
       let propMetadata = (<any>typeOrFunc).propMetadata;
-      if (isFunction(propMetadata) && propMetadata.propMetadata) {
+      if (typeof propMetadata === 'function' && propMetadata.propMetadata) {
         propMetadata = propMetadata.propMetadata;
       }
       return propMetadata;
@@ -128,16 +128,8 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
     return {};
   }
 
-  // Note: JavaScript does not support to query for interfaces during runtime.
-  // However, we can't throw here as the reflector will always call this method
-  // when asked for a lifecycle interface as this is what we check in Dart.
-  interfaces(type: Type<any>): any[] { return []; }
-
-  hasLifecycleHook(type: any, lcInterface: Type<any>, lcProperty: string): boolean {
-    if (!(type instanceof Type)) return false;
-
-    const proto = (<any>type).prototype;
-    return !!proto[lcProperty];
+  hasLifecycleHook(type: any, lcProperty: string): boolean {
+    return type instanceof Type && lcProperty in type.prototype;
   }
 
   getter(name: string): GetterFn { return <GetterFn>new Function('o', 'return o.' + name + ';'); }

@@ -123,6 +123,13 @@ export function main() {
         expect(form.value).toEqual({'parent': ['one', 'two']});
       });
 
+      it('should not update the parent explicitly specified', () => {
+        const form = new FormGroup({'parent': a});
+        a.setValue(['one', 'two'], {onlySelf: true});
+
+        expect(form.value).toEqual({parent: ['', '']});
+      });
+
       it('should throw if fields are missing from supplied value (subset)', () => {
         expect(() => a.setValue([, 'two']))
             .toThrowError(new RegExp(`Must supply a value for form control at index: 0`));
@@ -164,6 +171,16 @@ export function main() {
           a.setValue(['one', 'two']);
           expect(logger).toEqual(['control1', 'control2', 'array', 'form']);
         });
+
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             form.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             a.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c2.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             a.setValue(['one', 'two'], {emitEvent: false});
+             tick();
+           }));
 
         it('should emit one statusChange event per control', () => {
           form.statusChanges.subscribe(() => logger.push('form'));
@@ -219,6 +236,13 @@ export function main() {
         expect(form.value).toEqual({'parent': ['one', 'two']});
       });
 
+      it('should not update the parent explicitly specified', () => {
+        const form = new FormGroup({'parent': a});
+        a.patchValue(['one', 'two'], {onlySelf: true});
+
+        expect(form.value).toEqual({parent: ['', '']});
+      });
+
       it('should ignore fields that are missing from supplied value (subset)', () => {
         a.patchValue([, 'two']);
         expect(a.value).toEqual(['', 'two']);
@@ -263,6 +287,16 @@ export function main() {
           expect(logger).toEqual(['control1', 'array', 'form']);
         });
 
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             form.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             a.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c2.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             a.patchValue(['one', 'two'], {emitEvent: false});
+             tick();
+           }));
+
         it('should emit one statusChange event per control', () => {
           form.statusChanges.subscribe(() => logger.push('form'));
           a.statusChanges.subscribe(() => logger.push('array'));
@@ -289,6 +323,13 @@ export function main() {
 
         a.reset(['initial value', '']);
         expect(a.value).toEqual(['initial value', '']);
+      });
+
+      it('should not update the parent when explicitly specified', () => {
+        const form = new FormGroup({'a': a});
+        a.reset(['one', 'two'], {onlySelf: true});
+
+        expect(form.value).toEqual({a: ['initial value', '']});
       });
 
       it('should set its own value if boxed value passed', () => {
@@ -456,6 +497,17 @@ export function main() {
           a.reset();
           expect(logger).toEqual(['control1', 'control2', 'array', 'form']);
         });
+
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             form.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             a.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c2.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c3.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             a.reset([], {emitEvent: false});
+             tick();
+           }));
 
         it('should emit one statusChange event per reset control', () => {
           form.statusChanges.subscribe(() => logger.push('form'));

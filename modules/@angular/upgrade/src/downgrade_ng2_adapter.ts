@@ -49,7 +49,7 @@ export class DowngradeNg2ComponentAdapter {
 
   setupInputs(): void {
     var attrs = this.attrs;
-    var inputs = this.info.inputs;
+    var inputs = this.info.inputs || [];
     for (var i = 0; i < inputs.length; i++) {
       var input = inputs[i];
       var expr: any /** TODO #9100 */ = null;
@@ -115,7 +115,7 @@ export class DowngradeNg2ComponentAdapter {
 
   setupOutputs() {
     var attrs = this.attrs;
-    var outputs = this.info.outputs;
+    var outputs = this.info.outputs || [];
     for (var j = 0; j < outputs.length; j++) {
       var output = outputs[j];
       var expr: any /** TODO #9100 */ = null;

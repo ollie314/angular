@@ -240,7 +240,7 @@ export function Class(clsDef: ClassDefinition): Type<any> {
 
   for (let key in clsDef) {
     if (key !== 'extends' && key !== 'prototype' && clsDef.hasOwnProperty(key)) {
-      proto[key] = applyParams(<any>clsDef[key], key);
+      proto[key] = applyParams(clsDef[key], key);
     }
   }
 
@@ -297,21 +297,20 @@ export function makeDecorator(
 }
 
 function makeMetadataCtor(props: ([string, any] | {[key: string]: any})[]): any {
-  function ctor(...args: any[]) {
+  return function ctor(...args: any[]) {
     props.forEach((prop, i) => {
       const argVal = args[i];
       if (Array.isArray(prop)) {
         // plain parameter
-        this[prop[0]] = !argVal || argVal === undefined ? prop[1] : argVal;
+        this[prop[0]] = argVal === undefined ? prop[1] : argVal;
       } else {
-        for (let propName in prop) {
+        for (const propName in prop) {
           this[propName] =
-              !argVal || argVal[propName] === undefined ? prop[propName] : argVal[propName];
+              argVal && argVal.hasOwnProperty(propName) ? argVal[propName] : prop[propName];
         }
       }
     });
-  }
-  return ctor;
+  };
 }
 
 export function makeParamDecorator(
@@ -354,6 +353,7 @@ export function makeParamDecorator(
 export function makePropDecorator(
     name: string, props: ([string, any] | {[key: string]: any})[], parentClass?: any): any {
   const metaCtor = makeMetadataCtor(props);
+
   function PropDecoratorFactory(...args: any[]): any {
     if (this instanceof PropDecoratorFactory) {
       metaCtor.apply(this, args);
@@ -361,16 +361,19 @@ export function makePropDecorator(
     }
 
     const decoratorInstance = new (<any>PropDecoratorFactory)(...args);
+
     return function PropDecorator(target: any, name: string) {
       const meta = Reflect.getOwnMetadata('propMetadata', target.constructor) || {};
-      meta[name] = meta[name] || [];
+      meta[name] = meta.hasOwnProperty(name) && meta[name] || [];
       meta[name].unshift(decoratorInstance);
       Reflect.defineMetadata('propMetadata', meta, target.constructor);
     };
   }
+
   if (parentClass) {
     PropDecoratorFactory.prototype = Object.create(parentClass.prototype);
   }
+
   PropDecoratorFactory.prototype.toString = () => `@${name}`;
   (<any>PropDecoratorFactory).annotationCls = PropDecoratorFactory;
   return PropDecoratorFactory;

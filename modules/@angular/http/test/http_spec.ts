@@ -14,7 +14,6 @@ import {Observable} from 'rxjs/Observable';
 import {zip} from 'rxjs/observable/zip';
 
 import {BaseRequestOptions, ConnectionBackend, Http, HttpModule, JSONPBackend, Jsonp, JsonpModule, Request, RequestMethod, RequestOptions, Response, ResponseContentType, ResponseOptions, URLSearchParams, XHRBackend} from '../index';
-import {Json} from '../src/facade/lang';
 import {stringToArrayBuffer} from '../src/http_utils';
 import {MockBackend, MockConnection} from '../testing/mock_backend';
 
@@ -72,12 +71,13 @@ export function main() {
   });
 
   describe('http', () => {
-    var url = 'http://foo.bar';
-    var http: Http;
-    var injector: Injector;
-    var backend: MockBackend;
-    var baseResponse: Response;
-    var jsonp: Jsonp;
+    let url = 'http://foo.bar';
+    let http: Http;
+    let injector: Injector;
+    let backend: MockBackend;
+    let baseResponse: Response;
+    let jsonp: Jsonp;
+
     beforeEach(() => {
       injector = ReflectiveInjector.resolveAndCreate([
         BaseRequestOptions, MockBackend, {
@@ -99,6 +99,7 @@ export function main() {
       jsonp = injector.get(Jsonp);
       backend = injector.get(MockBackend);
       baseResponse = new Response(new ResponseOptions({body: 'base response'}));
+      spyOn(Http.prototype, 'request').and.callThrough();
     });
 
     afterEach(() => backend.verifyNoPendingRequests());
@@ -149,7 +150,7 @@ export function main() {
                expect(c.request.method).toEqual(RequestMethod.Post);
                c.mockRespond(baseResponse);
              });
-             let requestOptions = new RequestOptions({method: RequestMethod.Post});
+             const requestOptions = new RequestOptions({method: RequestMethod.Post});
              http.request('http://basic.connection', requestOptions).subscribe((res: Response) => {
                expect(res.text()).toBe('base response');
                async.done();
@@ -192,7 +193,7 @@ export function main() {
            }));
 
         it('should throw if url is not a string or Request', () => {
-          var req = <Request>{};
+          const req = <Request>{};
           expect(() => http.request(req))
               .toThrowError('First argument must be a url string or Request instance.');
         });
@@ -204,9 +205,11 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Get);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.get(url).subscribe((res: Response) => {});
            }));
       });
@@ -217,16 +220,18 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Post);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.post(url, 'post me').subscribe((res: Response) => {});
            }));
 
 
         it('should attach the provided body to the request',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-             var body = 'this is my post body';
+             const body = 'this is my post body';
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.text()).toBe(body);
                backend.resolveAllConnections();
@@ -242,15 +247,17 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Put);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.put(url, 'put me').subscribe((res: Response) => {});
            }));
 
         it('should attach the provided body to the request',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-             var body = 'this is my put body';
+             const body = 'this is my put body';
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.text()).toBe(body);
                backend.resolveAllConnections();
@@ -266,9 +273,11 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Delete);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.delete(url).subscribe((res: Response) => {});
            }));
       });
@@ -279,15 +288,17 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Patch);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.patch(url, 'this is my patch body').subscribe((res: Response) => {});
            }));
 
         it('should attach the provided body to the request',
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
-             var body = 'this is my patch body';
+             const body = 'this is my patch body';
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.text()).toBe(body);
                backend.resolveAllConnections();
@@ -303,9 +314,11 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Head);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.head(url).subscribe((res: Response) => {});
            }));
       });
@@ -316,9 +329,11 @@ export function main() {
            inject([AsyncTestCompleter], (async: AsyncTestCompleter) => {
              backend.connections.subscribe((c: MockConnection) => {
                expect(c.request.method).toBe(RequestMethod.Options);
+               expect(http.request).toHaveBeenCalled();
                backend.resolveAllConnections();
                async.done();
              });
+             expect(http.request).not.toHaveBeenCalled();
              http.options(url).subscribe((res: Response) => {});
            }));
       });
@@ -444,7 +459,7 @@ export function main() {
                    c.mockRespond(new Response(new ResponseOptions({body: simpleObject}))));
            http.get('https://www.google.com').subscribe((res: Response) => {
              expect(res.arrayBuffer()).toBeAnInstanceOf(ArrayBuffer);
-             expect(res.text()).toEqual(Json.stringify(simpleObject));
+             expect(res.text()).toEqual(JSON.stringify(simpleObject, null, 2));
              expect(res.json()).toBe(simpleObject);
              async.done();
            });
@@ -484,11 +499,11 @@ export function main() {
              let body = (): any => {
                switch (c.request.responseType) {
                  case ResponseContentType.Text:
-                   return Json.stringify(message);
+                   return JSON.stringify(message, null, 2);
                  case ResponseContentType.Json:
                    return message;
                  case ResponseContentType.ArrayBuffer:
-                   return stringToArrayBuffer(Json.stringify(message));
+                   return stringToArrayBuffer(JSON.stringify(message, null, 2));
                }
              };
              c.mockRespond(new Response(new ResponseOptions({body: body()})));

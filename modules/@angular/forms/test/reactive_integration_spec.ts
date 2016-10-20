@@ -22,11 +22,26 @@ export function main() {
       TestBed.configureTestingModule({
         imports: [FormsModule, ReactiveFormsModule],
         declarations: [
-          FormControlComp, FormGroupComp, FormArrayComp, FormArrayNestedGroup,
-          FormControlNameSelect, FormControlNumberInput, FormControlRadioButtons, WrappedValue,
-          WrappedValueForm, MyInput, MyInputForm, FormGroupNgModel, FormControlNgModel,
-          LoginIsEmptyValidator, LoginIsEmptyWrapper, ValidationBindingsForm, UniqLoginValidator,
-          UniqLoginWrapper, NestedFormGroupComp
+          FormControlComp,
+          FormGroupComp,
+          FormArrayComp,
+          FormArrayNestedGroup,
+          FormControlNameSelect,
+          FormControlNumberInput,
+          FormControlRangeInput,
+          FormControlRadioButtons,
+          WrappedValue,
+          WrappedValueForm,
+          MyInput,
+          MyInputForm,
+          FormGroupNgModel,
+          FormControlNgModel,
+          LoginIsEmptyValidator,
+          LoginIsEmptyWrapper,
+          ValidationBindingsForm,
+          UniqLoginValidator,
+          UniqLoginWrapper,
+          NestedFormGroupComp
         ]
       });
     });
@@ -646,6 +661,60 @@ export function main() {
         expect(sortedClassList(input)).toEqual(['ng-dirty', 'ng-touched', 'ng-valid']);
       });
 
+      it('should work with single fields and async validators', fakeAsync(() => {
+           const fixture = TestBed.createComponent(FormControlComp);
+           const control = new FormControl('', null, uniqLoginAsyncValidator('good'));
+           fixture.debugElement.componentInstance.control = control;
+           fixture.detectChanges();
+
+           const input = fixture.debugElement.query(By.css('input')).nativeElement;
+           expect(sortedClassList(input)).toEqual(['ng-pending', 'ng-pristine', 'ng-untouched']);
+
+           dispatchEvent(input, 'blur');
+           fixture.detectChanges();
+           expect(sortedClassList(input)).toEqual(['ng-pending', 'ng-pristine', 'ng-touched']);
+
+           input.value = 'good';
+           dispatchEvent(input, 'input');
+           tick();
+           fixture.detectChanges();
+
+           expect(sortedClassList(input)).toEqual(['ng-dirty', 'ng-touched', 'ng-valid']);
+         }));
+
+      it('should work with single fields that combines async and sync validators', fakeAsync(() => {
+           const fixture = TestBed.createComponent(FormControlComp);
+           const control =
+               new FormControl('', Validators.required, uniqLoginAsyncValidator('good'));
+           fixture.debugElement.componentInstance.control = control;
+           fixture.detectChanges();
+
+           const input = fixture.debugElement.query(By.css('input')).nativeElement;
+           expect(sortedClassList(input)).toEqual(['ng-invalid', 'ng-pristine', 'ng-untouched']);
+
+           dispatchEvent(input, 'blur');
+           fixture.detectChanges();
+           expect(sortedClassList(input)).toEqual(['ng-invalid', 'ng-pristine', 'ng-touched']);
+
+           input.value = 'bad';
+           dispatchEvent(input, 'input');
+           fixture.detectChanges();
+
+           expect(sortedClassList(input)).toEqual(['ng-dirty', 'ng-pending', 'ng-touched']);
+
+           tick();
+           fixture.detectChanges();
+
+           expect(sortedClassList(input)).toEqual(['ng-dirty', 'ng-invalid', 'ng-touched']);
+
+           input.value = 'good';
+           dispatchEvent(input, 'input');
+           tick();
+           fixture.detectChanges();
+
+           expect(sortedClassList(input)).toEqual(['ng-dirty', 'ng-touched', 'ng-valid']);
+         }));
+
       it('should work with single fields in parent forms', () => {
         const fixture = TestBed.createComponent(FormGroupComp);
         const form = new FormGroup({'login': new FormControl('', Validators.required)});
@@ -1070,6 +1139,57 @@ export function main() {
           expect(inputs[3].nativeElement.disabled).toEqual(false);
         });
 
+      });
+
+      describe('should support <type=range>', () => {
+        it('with basic use case', () => {
+          const fixture = TestBed.createComponent(FormControlRangeInput);
+          const control = new FormControl(10);
+          fixture.componentInstance.control = control;
+          fixture.detectChanges();
+
+          // model -> view
+          const input = fixture.debugElement.query(By.css('input'));
+          expect(input.nativeElement.value).toEqual('10');
+
+          input.nativeElement.value = '20';
+          dispatchEvent(input.nativeElement, 'input');
+
+          // view -> model
+          expect(control.value).toEqual(20);
+        });
+
+        it('when value is cleared in the UI', () => {
+          const fixture = TestBed.createComponent(FormControlNumberInput);
+          const control = new FormControl(10, Validators.required);
+          fixture.componentInstance.control = control;
+          fixture.detectChanges();
+
+          const input = fixture.debugElement.query(By.css('input'));
+          input.nativeElement.value = '';
+          dispatchEvent(input.nativeElement, 'input');
+
+          expect(control.valid).toBe(false);
+          expect(control.value).toEqual(null);
+
+          input.nativeElement.value = '0';
+          dispatchEvent(input.nativeElement, 'input');
+
+          expect(control.valid).toBe(true);
+          expect(control.value).toEqual(0);
+        });
+
+        it('when value is cleared programmatically', () => {
+          const fixture = TestBed.createComponent(FormControlNumberInput);
+          const control = new FormControl(10);
+          fixture.componentInstance.control = control;
+          fixture.detectChanges();
+
+          control.setValue(null);
+
+          const input = fixture.debugElement.query(By.css('input'));
+          expect(input.nativeElement.value).toEqual('');
+        });
       });
 
       describe('custom value accessors', () => {
@@ -1736,7 +1856,7 @@ class LoginIsEmptyValidator {
   }]
 })
 class UniqLoginValidator implements Validator {
-  @Input('uniq-login-validator') expected: any /** TODO #9100 */;
+  @Input('uniq-login-validator') expected: any;
 
   validate(c: AbstractControl) { return uniqLoginAsyncValidator(this.expected)(c); }
 }
@@ -1795,6 +1915,16 @@ class NestedFormGroupComp {
   `
 })
 class FormControlNumberInput {
+  control: FormControl;
+}
+
+@Component({
+  selector: 'form-control-range-input',
+  template: `
+    <input type="range" [formControl]="control">
+  `
+})
+class FormControlRangeInput {
   control: FormControl;
 }
 

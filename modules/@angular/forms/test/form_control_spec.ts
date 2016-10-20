@@ -429,6 +429,12 @@ export function main() {
         expect(c.value).toBe('initial value');
       });
 
+      it('should not set the parent when explicitly specified', () => {
+        const g = new FormGroup({'one': c});
+        c.patchValue('newValue', {onlySelf: true});
+        expect(g.value).toEqual({'one': 'initial value'});
+      });
+
       it('should reset to a specific value if passed with boxed value', () => {
         c.setValue('new value');
         expect(c.value).toBe('new value');
@@ -548,6 +554,16 @@ export function main() {
           c.reset();
           expect(logger).toEqual(['control1', 'group']);
         });
+
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             g.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c2.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             c.reset(null, {emitEvent: false});
+
+             tick();
+           }));
 
         it('should emit one statusChange event per reset control', () => {
           g.statusChanges.subscribe(() => logger.push('group'));

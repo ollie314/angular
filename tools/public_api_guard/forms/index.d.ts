@@ -8,6 +8,7 @@ export declare abstract class AbstractControl {
         [key: string]: any;
     };
     invalid: boolean;
+    parent: FormGroup | FormArray;
     pending: boolean;
     pristine: boolean;
     root: AbstractControl;
@@ -84,6 +85,8 @@ export declare abstract class AbstractControlDirective {
     valid: boolean;
     value: any;
     valueChanges: Observable<any>;
+    getError(errorCode: string, path?: string[]): any;
+    hasError(errorCode: string, path?: string[]): boolean;
     reset(value?: any): void;
 }
 
@@ -159,17 +162,20 @@ export declare class FormArray extends AbstractControl {
     at(index: number): AbstractControl;
     getRawValue(): any[];
     insert(index: number, control: AbstractControl): void;
-    patchValue(value: any[], {onlySelf}?: {
+    patchValue(value: any[], {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
     push(control: AbstractControl): void;
     removeAt(index: number): void;
-    reset(value?: any, {onlySelf}?: {
+    reset(value?: any, {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
     setControl(index: number, control: AbstractControl): void;
-    setValue(value: any[], {onlySelf}?: {
+    setValue(value: any[], {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
 }
 
@@ -208,8 +214,9 @@ export declare class FormControl extends AbstractControl {
     }): void;
     registerOnChange(fn: Function): void;
     registerOnDisabledChange(fn: (isDisabled: boolean) => void): void;
-    reset(formState?: any, {onlySelf}?: {
+    reset(formState?: any, {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
     setValue(value: any, {onlySelf, emitEvent, emitModelToViewChange, emitViewToModelChange}?: {
         onlySelf?: boolean;
@@ -265,19 +272,22 @@ export declare class FormGroup extends AbstractControl {
     getRawValue(): Object;
     patchValue(value: {
         [key: string]: any;
-    }, {onlySelf}?: {
+    }, {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
     registerControl(name: string, control: AbstractControl): AbstractControl;
     removeControl(name: string): void;
-    reset(value?: any, {onlySelf}?: {
+    reset(value?: any, {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
     setControl(name: string, control: AbstractControl): void;
     setValue(value: {
         [key: string]: any;
-    }, {onlySelf}?: {
+    }, {onlySelf, emitEvent}?: {
         onlySelf?: boolean;
+        emitEvent?: boolean;
     }): void;
 }
 
@@ -517,7 +527,7 @@ export declare class Validators {
     static nullValidator(c: AbstractControl): {
         [key: string]: boolean;
     };
-    static pattern(pattern: string): ValidatorFn;
+    static pattern(pattern: string | RegExp): ValidatorFn;
     static required(control: AbstractControl): {
         [key: string]: boolean;
     };

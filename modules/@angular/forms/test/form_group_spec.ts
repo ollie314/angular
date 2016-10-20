@@ -185,6 +185,13 @@ export function main() {
         expect(form.value).toEqual({'parent': {'one': 'one', 'two': 'two'}});
       });
 
+      it('should not update the parent when explicitly specified', () => {
+        const form = new FormGroup({'parent': g});
+        g.setValue({'one': 'one', 'two': 'two'}, {onlySelf: true});
+
+        expect(form.value).toEqual({parent: {'one': '', 'two': ''}});
+      });
+
       it('should throw if fields are missing from supplied value (subset)', () => {
         expect(() => g.setValue({
           'one': 'one'
@@ -228,6 +235,15 @@ export function main() {
           g.setValue({'one': 'one', 'two': 'two'});
           expect(logger).toEqual(['control1', 'control2', 'group', 'form']);
         });
+
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             form.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             g.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             g.setValue({'one': 'one', 'two': 'two'}, {emitEvent: false});
+             tick();
+           }));
 
         it('should emit one statusChange event per control', () => {
           form.statusChanges.subscribe(() => logger.push('form'));
@@ -283,6 +299,13 @@ export function main() {
         expect(form.value).toEqual({'parent': {'one': 'one', 'two': 'two'}});
       });
 
+      it('should not update the parent when explicitly specified', () => {
+        const form = new FormGroup({'parent': g});
+        g.patchValue({'one': 'one', 'two': 'two'}, {onlySelf: true});
+
+        expect(form.value).toEqual({parent: {'one': '', 'two': ''}});
+      });
+
       it('should ignore fields that are missing from supplied value (subset)', () => {
         g.patchValue({'one': 'one'});
         expect(g.value).toEqual({'one': 'one', 'two': ''});
@@ -326,6 +349,15 @@ export function main() {
           g.patchValue({'one': 'one'});
           expect(logger).toEqual(['control1', 'group', 'form']);
         });
+
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             form.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             g.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             g.patchValue({'one': 'one', 'two': 'two'}, {emitEvent: false});
+             tick();
+           }));
 
         it('should emit one statusChange event per control', () => {
           form.statusChanges.subscribe(() => logger.push('form'));
@@ -399,6 +431,13 @@ export function main() {
 
         g.reset();
         expect(form.value).toEqual({'g': {'one': null, 'two': null}});
+      });
+
+      it('should not update the parent when explicitly specified', () => {
+        const form = new FormGroup({'g': g});
+        g.reset({'one': 'new value', 'two': 'new value'}, {onlySelf: true});
+
+        expect(form.value).toEqual({g: {'one': 'initial value', 'two': ''}});
       });
 
       it('should mark itself as pristine', () => {
@@ -520,6 +559,15 @@ export function main() {
           expect(logger).toEqual(['control1', 'control2', 'group', 'form']);
         });
 
+        it('should not fire an event when explicitly specified', fakeAsync(() => {
+             form.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             g.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+             c.valueChanges.subscribe((value) => { throw 'Should not happen'; });
+
+             g.reset({}, {emitEvent: false});
+             tick();
+           }));
+
         it('should emit one statusChange event per reset control', () => {
           form.statusChanges.subscribe(() => logger.push('form'));
           g.statusChanges.subscribe(() => logger.push('group'));
@@ -541,7 +589,6 @@ export function main() {
           g.reset({'one': {value: '', disabled: true}});
           expect(logger).toEqual(['control1', 'control2', 'group', 'form']);
         });
-
       });
 
     });

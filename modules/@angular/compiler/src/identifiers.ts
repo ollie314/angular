@@ -9,7 +9,7 @@
 import {ANALYZE_FOR_ENTRY_COMPONENTS, ChangeDetectionStrategy, ChangeDetectorRef, ComponentFactory, ComponentFactoryResolver, ElementRef, Injector, LOCALE_ID as LOCALE_ID_, NgModuleFactory, QueryList, RenderComponentType, Renderer, SecurityContext, SimpleChange, TRANSLATIONS_FORMAT as TRANSLATIONS_FORMAT_, TemplateRef, ViewContainerRef, ViewEncapsulation} from '@angular/core';
 
 import {CompileIdentifierMetadata, CompileTokenMetadata} from './compile_metadata';
-import {AnimationGroupPlayer, AnimationKeyframe, AnimationSequencePlayer, AnimationStyles, AppElement, AppView, ChangeDetectorStatus, CodegenComponentFactoryResolver, DebugAppView, DebugContext, EMPTY_ARRAY, EMPTY_MAP, NgModuleInjector, NoOpAnimationPlayer, StaticNodeDebugInfo, TemplateRef_, UNINITIALIZED, ValueUnwrapper, ViewType, ViewUtils, balanceAnimationKeyframes, castByValue, checkBinding, clearStyles, collectAndResolveStyles, devModeEqual, flattenNestedViewRenderNodes, interpolate, prepareFinalAnimationStyles, pureProxy1, pureProxy10, pureProxy2, pureProxy3, pureProxy4, pureProxy5, pureProxy6, pureProxy7, pureProxy8, pureProxy9, reflector, registerModuleFactory, renderStyles} from './private_import_core';
+import {AnimationGroupPlayer, AnimationKeyframe, AnimationSequencePlayer, AnimationStyles, AnimationTransition, AppElement, AppView, ChangeDetectorStatus, CodegenComponentFactoryResolver, DebugAppView, DebugContext, EMPTY_ARRAY, EMPTY_MAP, NgModuleInjector, NoOpAnimationPlayer, StaticNodeDebugInfo, TemplateRef_, UNINITIALIZED, ValueUnwrapper, ViewType, ViewUtils, balanceAnimationKeyframes, castByValue, checkBinding, clearStyles, collectAndResolveStyles, devModeEqual, flattenNestedViewRenderNodes, interpolate, prepareFinalAnimationStyles, pureProxy1, pureProxy10, pureProxy2, pureProxy3, pureProxy4, pureProxy5, pureProxy6, pureProxy7, pureProxy8, pureProxy9, reflector, registerModuleFactory, renderStyles} from './private_import_core';
 import {assetUrl} from './util';
 
 var APP_VIEW_MODULE_URL = assetUrl('core', 'linker/view');
@@ -265,6 +265,11 @@ export class Identifiers {
     name: 'TRANSLATIONS_FORMAT',
     moduleUrl: assetUrl('core', 'i18n/tokens'),
     runtime: TRANSLATIONS_FORMAT_
+  };
+  static AnimationTransition: IdentifierSpec = {
+    name: 'AnimationTransition',
+    moduleUrl: assetUrl('core', 'animation/animation_transition'),
+    runtime: AnimationTransition
   };
 }
 
