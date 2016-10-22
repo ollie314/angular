@@ -11,13 +11,12 @@
  * Intended to be used in a build step.
  */
 import * as compiler from '@angular/compiler';
-import {Component, NgModule, ViewEncapsulation} from '@angular/core';
+import {Directive, NgModule, ViewEncapsulation} from '@angular/core';
 import {AngularCompilerOptions, NgcCliOptions} from '@angular/tsc-wrapped';
 import * as path from 'path';
 import * as ts from 'typescript';
 
 import {PathMappedReflectorHost} from './path_mapped_reflector_host';
-import {CompileMetadataResolver, DirectiveNormalizer, DomElementSchemaRegistry, HtmlParser, Lexer, NgModuleCompiler, Parser, StyleCompiler, TemplateParser, TypeScriptEmitter, ViewCompiler} from './private_import_compiler';
 import {Console} from './private_import_core';
 import {ReflectorHost, ReflectorHostContext} from './reflector_host';
 import {StaticAndDynamicReflectionCapabilities} from './static_reflection_capabilities';
@@ -59,7 +58,7 @@ export class CodeGeneratorModuleCollector {
 
   private readFileMetadata(absSourcePath: string): FileMetadata {
     const moduleMetadata = this.staticReflector.getModuleMetadata(absSourcePath);
-    const result: FileMetadata = {components: [], ngModules: [], fileUrl: absSourcePath};
+    const result: FileMetadata = {directives: [], ngModules: [], fileUrl: absSourcePath};
     if (!moduleMetadata) {
       console.log(`WARNING: no metadata found for ${absSourcePath}`);
       return result;
@@ -79,8 +78,8 @@ export class CodeGeneratorModuleCollector {
       annotations.forEach((annotation) => {
         if (annotation instanceof NgModule) {
           result.ngModules.push(staticType);
-        } else if (annotation instanceof Component) {
-          result.components.push(staticType);
+        } else if (annotation instanceof Directive) {
+          result.directives.push(staticType);
         }
       });
     }
@@ -128,7 +127,7 @@ export class CodeGenerator {
         (fileMeta) =>
             this.compiler
                 .compile(
-                    fileMeta.fileUrl, analyzedNgModules, fileMeta.components, fileMeta.ngModules)
+                    fileMeta.fileUrl, analyzedNgModules, fileMeta.directives, fileMeta.ngModules)
                 .then((generatedModules) => {
                   generatedModules.forEach((generatedModule) => {
                     const sourceFile = this.program.getSourceFile(fileMeta.fileUrl);
@@ -173,28 +172,30 @@ export class CodeGenerator {
     const staticReflector = new StaticReflector(reflectorHost);
     StaticAndDynamicReflectionCapabilities.install(staticReflector);
     const htmlParser =
-        new compiler.I18NHtmlParser(new HtmlParser(), transContent, cliOptions.i18nFormat);
+        new compiler.I18NHtmlParser(new compiler.HtmlParser(), transContent, cliOptions.i18nFormat);
     const config = new compiler.CompilerConfig({
       genDebugInfo: options.debug === true,
       defaultEncapsulation: ViewEncapsulation.Emulated,
       logBindingUpdate: false,
       useJit: false
     });
-    const normalizer = new DirectiveNormalizer(resourceLoader, urlResolver, htmlParser, config);
-    const expressionParser = new Parser(new Lexer());
-    const elementSchemaRegistry = new DomElementSchemaRegistry();
+    const normalizer =
+        new compiler.DirectiveNormalizer(resourceLoader, urlResolver, htmlParser, config);
+    const expressionParser = new compiler.Parser(new compiler.Lexer());
+    const elementSchemaRegistry = new compiler.DomElementSchemaRegistry();
     const console = new Console();
-    const tmplParser =
-        new TemplateParser(expressionParser, elementSchemaRegistry, htmlParser, console, []);
-    const resolver = new CompileMetadataResolver(
+    const tmplParser = new compiler.TemplateParser(
+        expressionParser, elementSchemaRegistry, htmlParser, console, []);
+    const resolver = new compiler.CompileMetadataResolver(
         new compiler.NgModuleResolver(staticReflector),
         new compiler.DirectiveResolver(staticReflector), new compiler.PipeResolver(staticReflector),
         elementSchemaRegistry, staticReflector);
     // TODO(vicb): do not pass cliOptions.i18nFormat here
     const offlineCompiler = new compiler.OfflineCompiler(
-        resolver, normalizer, tmplParser, new StyleCompiler(urlResolver), new ViewCompiler(config),
-        new NgModuleCompiler(), new TypeScriptEmitter(reflectorHost), cliOptions.locale,
-        cliOptions.i18nFormat);
+        resolver, normalizer, tmplParser, new compiler.StyleCompiler(urlResolver),
+        new compiler.ViewCompiler(config), new compiler.DirectiveWrapperCompiler(config),
+        new compiler.NgModuleCompiler(), new compiler.TypeScriptEmitter(reflectorHost),
+        cliOptions.locale, cliOptions.i18nFormat);
 
     return new CodeGenerator(
         options, program, compilerHost, staticReflector, offlineCompiler, reflectorHost);
@@ -203,6 +204,6 @@ export class CodeGenerator {
 
 export interface FileMetadata {
   fileUrl: string;
-  components: StaticSymbol[];
+  directives: StaticSymbol[];
   ngModules: StaticSymbol[];
 }
