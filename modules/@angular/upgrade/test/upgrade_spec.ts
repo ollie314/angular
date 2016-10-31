@@ -6,8 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Class, Component, EventEmitter, NO_ERRORS_SCHEMA, NgModule, Testability, destroyPlatform, forwardRef} from '@angular/core';
-import {async} from '@angular/core/testing';
+import {Class, Component, EventEmitter, NO_ERRORS_SCHEMA, NgModule, SimpleChanges, Testability, destroyPlatform, forwardRef} from '@angular/core';
+import {async, fakeAsync, flushMicrotasks} from '@angular/core/testing';
 import {BrowserModule} from '@angular/platform-browser';
 import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 import {UpgradeAdapter} from '@angular/upgrade';
@@ -20,12 +20,53 @@ export function main() {
 
     it('should have angular 1 loaded', () => expect(angular.version.major).toBe(1));
 
+    describe('bootstrap errors', () => {
+      let adapter: UpgradeAdapter;
+
+      beforeEach(() => {
+        angular.module('ng1', []);
+
+        const ng2Component = Component({
+                               selector: 'ng2',
+                               template: `<BAD TEMPLATE div></div>`,
+                             }).Class({constructor: function() {}});
+
+        const Ng2Module = NgModule({
+                            declarations: [ng2Component],
+                            imports: [BrowserModule],
+                          }).Class({constructor: function() {}});
+
+        adapter = new UpgradeAdapter(Ng2Module);
+      });
+
+      it('should throw an uncaught error', fakeAsync(() => {
+           const resolveSpy = jasmine.createSpy('resolveSpy');
+           spyOn(console, 'log');
+
+           expect(() => {
+             adapter.bootstrap(html('<ng2></ng2>'), ['ng1']).ready(resolveSpy);
+             flushMicrotasks();
+           }).toThrowError();
+           expect(resolveSpy).not.toHaveBeenCalled();
+         }));
+
+      it('should properly log to the console and re-throw', fakeAsync(() => {
+           spyOn(console, 'log');
+           expect(() => {
+             adapter.bootstrap(html('<ng2></ng2>'), ['ng1']);
+             flushMicrotasks();
+           }).toThrowError();
+           expect(console.log).toHaveBeenCalled();
+           expect(console.log).toHaveBeenCalledWith(jasmine.any(Error), jasmine.any(String));
+         }));
+    });
+
     it('should instantiate ng2 in ng1 template and project content', async(() => {
          const ng1Module = angular.module('ng1', []);
 
          const Ng2 = Component({
                        selector: 'ng2',
-                       template: `{{ 'NG2' }}(<ng-content></ng-content>)`
+                       template: `{{ 'NG2' }}(<ng-content></ng-content>)`,
                      }).Class({constructor: function() {}});
 
          const Ng2Module = NgModule({declarations: [Ng2], imports: [BrowserModule]}).Class({
@@ -105,15 +146,15 @@ export function main() {
       it('should interleave scope and component expressions', async(() => {
            const adapter: UpgradeAdapter = new UpgradeAdapter(forwardRef(() => Ng2Module));
            const ng1Module = angular.module('ng1', []);
-           const log: any[] /** TODO #9100 */ = [];
-           const l = (value: any /** TODO #9100 */) => {
+           const log: string[] = [];
+           const l = (value: string) => {
              log.push(value);
              return value + ';';
            };
 
            ng1Module.directive('ng1a', () => ({template: '{{ l(\'ng1a\') }}'}));
            ng1Module.directive('ng1b', () => ({template: '{{ l(\'ng1b\') }}'}));
-           ng1Module.run(($rootScope: any /** TODO #9100 */) => {
+           ng1Module.run(($rootScope: any) => {
              $rootScope.l = l;
              $rootScope.reset = () => log.length = 0;
            });
@@ -150,7 +191,7 @@ export function main() {
            const adapter: UpgradeAdapter = new UpgradeAdapter(forwardRef(() => Ng2Module));
            const ng1Module = angular.module('ng1', []);
 
-           ng1Module.run(($rootScope: any /** TODO #9100 */) => {
+           ng1Module.run(($rootScope: any) => {
              $rootScope.dataA = 'A';
              $rootScope.dataB = 'B';
              $rootScope.modelA = 'initModelA';
@@ -185,14 +226,14 @@ export function main() {
                this.twoWayAEmitter = new EventEmitter();
                this.twoWayBEmitter = new EventEmitter();
              },
-             ngOnChanges: function(changes: any /** TODO #9100 */) {
-               const assert = (prop: any /** TODO #9100 */, value: any /** TODO #9100 */) => {
+             ngOnChanges: function(changes: SimpleChanges) {
+               const assert = (prop: string, value: any) => {
                  if (this[prop] != value) {
                    throw new Error(`Expected: '${prop}' to be '${value}' but was '${this[prop]}'`);
                  }
                };
 
-               const assertChange = (prop: any /** TODO #9100 */, value: any /** TODO #9100 */) => {
+               const assertChange = (prop: string, value: any) => {
                  assert(prop, value);
                  if (!changes[prop]) {
                    throw new Error(`Changes record for '${prop}' not found.`);
@@ -265,8 +306,7 @@ export function main() {
            ng1Module.directive('ng1', () => {
              return {
                template: '<div ng-if="!destroyIt"><ng2></ng2></div>',
-               controller: function(
-                   $rootScope: any /** TODO #9100 */, $timeout: any /** TODO #9100 */) {
+               controller: function($rootScope: any, $timeout: Function) {
                  $timeout(() => { $rootScope.destroyIt = true; });
                }
              };
@@ -297,11 +337,9 @@ export function main() {
 
            ng1Module.directive('ng1', [
              '$compile',
-             ($compile: any /** TODO #9100 */) => {
+             ($compile: Function) => {
                return {
-                 link: function(
-                     $scope: any /** TODO #9100 */, $element: any /** TODO #9100 */,
-                     $attrs: any /** TODO #9100 */) {
+                 link: function($scope: any, $element: any, $attrs: any) {
                    const compiled = $compile('<ng2></ng2>');
                    const template = compiled($scope);
                    $element.append(template);
@@ -337,8 +375,8 @@ export function main() {
              return {
                template: 'Hello {{fullName}}; A: {{dataA}}; B: {{dataB}}; C: {{modelC}}; | ',
                scope: {fullName: '@', modelA: '=dataA', modelB: '=dataB', modelC: '=', event: '&'},
-               link: function(scope: any /** TODO #9100 */) {
-                 scope.$watch('dataB', (v: any /** TODO #9100 */) => {
+               link: function(scope: any) {
+                 scope.$watch('dataB', (v: string) => {
                    if (v == 'Savkin') {
                      scope.dataB = 'SAVKIN';
                      scope.event('WORKS');
@@ -442,9 +480,7 @@ export function main() {
                restrict: 'E',
                template: '{{someText}} - Length: {{data.length}}',
                scope: {data: '='},
-               controller: function($scope: any /** TODO #9100 */) {
-                 $scope.someText = 'ng1 - Data: ' + $scope.data;
-               }
+               controller: function($scope: any) { $scope.someText = 'ng1 - Data: ' + $scope.data; }
              };
            };
 
@@ -490,9 +526,7 @@ export function main() {
                restrict: 'E',
                template: '{{someText}} - Length: {{data.length}}',
                scope: {data: '='},
-               link: function($scope: any /** TODO #9100 */) {
-                 $scope.someText = 'ng1 - Data: ' + $scope.data;
-               }
+               link: function($scope: any) { $scope.someText = 'ng1 - Data: ' + $scope.data; }
              };
            };
 
@@ -533,9 +567,9 @@ export function main() {
            const adapter: UpgradeAdapter = new UpgradeAdapter(forwardRef(() => Ng2Module));
            const ng1Module = angular.module('ng1', []);
            ng1Module.value(
-               '$httpBackend', (method: any /** TODO #9100 */, url: any /** TODO #9100 */,
-                                post: any /** TODO #9100 */,
-                                cbFn: any /** TODO #9100 */) => { cbFn(200, `${method}:${url}`); });
+               '$httpBackend', (method: string, url: string, post: any, cbFn: Function) => {
+                 cbFn(200, `${method}:${url}`);
+               });
 
            const ng1 = () => { return {templateUrl: 'url.html'}; };
            ng1Module.directive('ng1', ng1);
@@ -561,9 +595,9 @@ export function main() {
            const adapter: UpgradeAdapter = new UpgradeAdapter(forwardRef(() => Ng2Module));
            const ng1Module = angular.module('ng1', []);
            ng1Module.value(
-               '$httpBackend', (method: any /** TODO #9100 */, url: any /** TODO #9100 */,
-                                post: any /** TODO #9100 */,
-                                cbFn: any /** TODO #9100 */) => { cbFn(200, `${method}:${url}`); });
+               '$httpBackend', (method: string, url: string, post: any, cbFn: Function) => {
+                 cbFn(200, `${method}:${url}`);
+               });
 
            const ng1 = () => { return {templateUrl() { return 'url.html'; }}; };
            ng1Module.directive('ng1', ng1);
@@ -638,8 +672,7 @@ export function main() {
       it('should support templateUrl fetched from $templateCache', async(() => {
            const adapter: UpgradeAdapter = new UpgradeAdapter(forwardRef(() => Ng2Module));
            const ng1Module = angular.module('ng1', []);
-           ng1Module.run(
-               ($templateCache: any /** TODO #9100 */) => $templateCache.put('url.html', 'WORKS'));
+           ng1Module.run(($templateCache: any) => $templateCache.put('url.html', 'WORKS'));
 
            const ng1 = () => { return {templateUrl: 'url.html'}; };
            ng1Module.directive('ng1', ng1);
@@ -673,8 +706,7 @@ export function main() {
                    '{{ctl.scope}}; {{ctl.isClass}}; {{ctl.hasElement}}; {{ctl.isPublished()}}',
                controllerAs: 'ctl',
                controller: Class({
-                 constructor: function(
-                     $scope: any /** TODO #9100 */, $element: any /** TODO #9100 */) {
+                 constructor: function($scope: any, $element: any) {
                    (<any>this).verifyIAmAClass();
                    this.scope = $scope.$parent.$parent == $scope.$root ? 'scope' : 'wrong-scope';
                    this.hasElement = $element[0].nodeName;
@@ -777,7 +809,7 @@ export function main() {
            const adapter: UpgradeAdapter = new UpgradeAdapter(forwardRef(() => Ng2Module));
            const ng1Module = angular.module('ng1', []);
 
-           const ng1 = ($rootScope: any /** TODO #9100 */) => {
+           const ng1 = ($rootScope: any) => {
              return {
                scope: {title: '@'},
                bindToController: true,
@@ -785,9 +817,7 @@ export function main() {
                require: 'ng1',
                controllerAs: 'ctrl',
                controller: Class({constructor: function() { this.status = 'WORKS'; }}),
-               link: function(
-                   scope: any /** TODO #9100 */, element: any /** TODO #9100 */,
-                   attrs: any /** TODO #9100 */, linkController: any /** TODO #9100 */) {
+               link: function(scope: any, element: any, attrs: any, linkController: any) {
                  expect(scope.$root).toEqual($rootScope);
                  expect(element[0].nodeName).toEqual('NG1');
                  expect(linkController.status).toEqual('WORKS');
@@ -830,9 +860,7 @@ export function main() {
                require: ['ng1', '^parent', '?^^notFound'],
                controllerAs: 'ctrl',
                controller: Class({constructor: function() { this.status = 'WORKS'; }}),
-               link: function(
-                   scope: any /** TODO #9100 */, element: any /** TODO #9100 */,
-                   attrs: any /** TODO #9100 */, linkControllers: any /** TODO #9100 */) {
+               link: function(scope: any, element: any, attrs: any, linkControllers: any) {
                  expect(linkControllers[0].status).toEqual('WORKS');
                  expect(linkControllers[1].parent).toEqual('PARENT');
                  expect(linkControllers[2]).toBe(undefined);
@@ -1109,13 +1137,16 @@ export function main() {
 }
 
 function multiTrim(text: string): string {
-  return text.replace(/\n/g, '').replace(/\s\s+/g, ' ').trim();
+  return text.replace(/\n/g, '').replace(/\s{2,}/g, ' ').trim();
 }
 
 function html(html: string): Element {
   const body = document.body;
   body.innerHTML = html;
-  if (body.childNodes.length == 1 && body.firstChild instanceof HTMLElement)
+
+  if (body.childNodes.length == 1 && body.firstChild instanceof HTMLElement) {
     return <Element>body.firstChild;
+  }
+
   return body;
 }
