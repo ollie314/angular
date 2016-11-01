@@ -1,3 +1,11 @@
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+
 import {NgFor} from '@angular/common';
 import {Component, Directive} from '@angular/core';
 
@@ -63,7 +71,7 @@ export class Stage {
       </div>`
 })
 export class StageButtonsComponent extends HasStyle {
-  _offering: Offering;
+  private _offering: Offering;
   stages: Stage[];
 
   get offering(): Offering { return this._offering; }
@@ -78,7 +86,7 @@ export class StageButtonsComponent extends HasStyle {
     this._computeStageButtons();
   }
 
-  _computeStageButtons() {
+  private _computeStageButtons() {
     var disabled = true;
     this.stages = STATUS_LIST
                       .map((status) => {

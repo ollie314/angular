@@ -1,3 +1,11 @@
+/**
+ * @license
+ * Copyright Google Inc. All Rights Reserved.
+ *
+ * Use of this source code is governed by an MIT-style license that can be
+ * found in the LICENSE file at https://angular.io/license
+ */
+
 import {spawn} from 'child_process';
 import {platform} from 'os';
 import {normalize} from 'path';
@@ -106,8 +114,7 @@ export class TscWatch {
       } else {
         if (this.triggered) {
           this.triggered.then(
-              () => this.triggerCmds(),
-              (e) => {console.log('Error while running commands....', e)});
+              () => this.triggerCmds(), (e) => console.log('Error while running commands....', e));
         } else {
           this.triggerCmds();
         }
@@ -119,9 +126,9 @@ export class TscWatch {
 
   triggerCmds() {
     var cmdPromise: Promise<number> = Promise.resolve(0);
-    this.onChangeCmds.forEach((cmd: string[] | Command) => {cmdPromise = cmdPromise.then(() => {
-                                return this.runCmd(<string[]>cmd);
-                              })});
+    this.onChangeCmds.forEach(
+        (cmd: string[] | Command) => cmdPromise =
+            cmdPromise.then(() => this.runCmd(<string[]>cmd)));
     cmdPromise.then(() => this.triggered = null, (code) => {
       if (this.runOnce) {
         if (typeof code != 'number') {
