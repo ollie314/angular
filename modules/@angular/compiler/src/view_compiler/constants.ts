@@ -39,13 +39,13 @@ export class ChangeDetectorStatusEnum {
 
 export class ViewConstructorVars {
   static viewUtils = o.variable('viewUtils');
-  static parentInjector = o.variable('parentInjector');
-  static declarationEl = o.variable('declarationEl');
+  static parentView = o.variable('parentView');
+  static parentIndex = o.variable('parentIndex');
+  static parentElement = o.variable('parentElement');
 }
 
 export class ViewProperties {
   static renderer = o.THIS_EXPR.prop('renderer');
-  static projectableNodes = o.THIS_EXPR.prop('projectableNodes');
   static viewUtils = o.THIS_EXPR.prop('viewUtils');
 }
 

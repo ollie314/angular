@@ -15,32 +15,16 @@ import {ViewEncapsulation} from '../metadata/view';
 import {RenderComponentType, RenderDebugInfo, Renderer, RootRenderer} from '../render/api';
 import {Sanitizer} from '../security';
 
-import {AppElement} from './element';
 import {ExpressionChangedAfterItHasBeenCheckedError} from './errors';
 import {AppView} from './view';
+import {ViewContainer} from './view_container';
 
 @Injectable()
 export class ViewUtils {
   sanitizer: Sanitizer;
   private _nextCompTypeId: number = 0;
 
-  constructor(
-      private _renderer: RootRenderer, @Inject(APP_ID) private _appId: string,
-      sanitizer: Sanitizer) {
-    this.sanitizer = sanitizer;
-  }
-
-  /**
-   * Used by the generated code
-   */
-  // TODO (matsko): add typing for the animation function
-  createRenderComponentType(
-      templateUrl: string, slotCount: number, encapsulation: ViewEncapsulation,
-      styles: Array<string|any[]>, animations: {[key: string]: Function}): RenderComponentType {
-    return new RenderComponentType(
-        `${this._appId}-${this._nextCompTypeId++}`, templateUrl, slotCount, encapsulation, styles,
-        animations);
-  }
+  constructor(private _renderer: RootRenderer, sanitizer: Sanitizer) { this.sanitizer = sanitizer; }
 
   /** @internal */
   renderComponent(renderComponentType: RenderComponentType): Renderer {
@@ -48,49 +32,28 @@ export class ViewUtils {
   }
 }
 
-export function flattenNestedViewRenderNodes(nodes: any[]): any[] {
-  return _flattenNestedViewRenderNodes(nodes, []);
+let nextRenderComponentTypeId = 0;
+
+export function createRenderComponentType(
+    templateUrl: string, slotCount: number, encapsulation: ViewEncapsulation,
+    styles: Array<string|any[]>, animations: {[key: string]: Function}): RenderComponentType {
+  return new RenderComponentType(
+      `${nextRenderComponentTypeId++}`, templateUrl, slotCount, encapsulation, styles, animations);
 }
 
-function _flattenNestedViewRenderNodes(nodes: any[], renderNodes: any[]): any[] {
-  for (var i = 0; i < nodes.length; i++) {
-    var node = nodes[i];
-    if (node instanceof AppElement) {
-      var appEl = <AppElement>node;
-      renderNodes.push(appEl.nativeElement);
-      if (isPresent(appEl.nestedViews)) {
-        for (var k = 0; k < appEl.nestedViews.length; k++) {
-          _flattenNestedViewRenderNodes(appEl.nestedViews[k].rootNodesOrAppElements, renderNodes);
-        }
-      }
-    } else {
-      renderNodes.push(node);
-    }
+export function addToArray(e: any, array: any[]) {
+  array.push(e);
+}
+
+export function interpolate(valueCount: number, constAndInterp: string[]): string {
+  let result = '';
+  for (let i = 0; i < valueCount * 2; i = i + 2) {
+    result = result + constAndInterp[i] + _toStringWithNull(constAndInterp[i + 1]);
   }
-  return renderNodes;
+  return result + constAndInterp[valueCount * 2];
 }
 
-const EMPTY_ARR: any[] = [];
-
-export function ensureSlotCount(projectableNodes: any[][], expectedSlotCount: number): any[][] {
-  var res: any[][];
-  if (!projectableNodes) {
-    res = EMPTY_ARR;
-  } else if (projectableNodes.length < expectedSlotCount) {
-    var givenSlotCount = projectableNodes.length;
-    res = new Array(expectedSlotCount);
-    for (var i = 0; i < expectedSlotCount; i++) {
-      res[i] = (i < givenSlotCount) ? projectableNodes[i] : EMPTY_ARR;
-    }
-  } else {
-    res = projectableNodes;
-  }
-  return res;
-}
-
-export const MAX_INTERPOLATION_VALUES = 9;
-
-export function interpolate(
+export function inlineInterpolate(
     valueCount: number, c0: string, a1: any, c1: string, a2?: any, c2?: string, a3?: any,
     c3?: string, a4?: any, c4?: string, a5?: any, c5?: string, a6?: any, c6?: string, a7?: any,
     c7?: string, a8?: any, c8?: string, a9?: any, c9?: string): string {
@@ -395,6 +358,9 @@ export function selectOrCreateRenderHostElement(
   var hostElement: any;
   if (isPresent(rootSelectorOrNode)) {
     hostElement = renderer.selectRootElement(rootSelectorOrNode, debugInfo);
+    for (var i = 0; i < attrs.length; i += 2) {
+      renderer.setElementAttribute(hostElement, attrs.get(i), attrs.get(i + 1));
+    }
   } else {
     hostElement = createRenderElement(renderer, null, elementName, attrs, debugInfo);
   }

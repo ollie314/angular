@@ -61,8 +61,7 @@ export function bindDirectiveWrapperLifecycleCallbacks(
       DirectiveWrapperExpressions.ngOnDestroy(dir.directive, directiveWrapperIntance));
   compileElement.view.detachMethod.addStmts(DirectiveWrapperExpressions.ngOnDetach(
       dir.hostProperties, directiveWrapperIntance, o.THIS_EXPR,
-      compileElement.component ? compileElement.appElement.prop('componentView') : o.THIS_EXPR,
-      compileElement.renderNode));
+      compileElement.compViewExpr || o.THIS_EXPR, compileElement.renderNode));
 }
 
 

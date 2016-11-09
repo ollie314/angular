@@ -11,7 +11,6 @@ import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompilePipeMetadata
 import {EventHandlerVars, NameResolver} from '../compiler_util/expression_converter';
 import {createPureProxy} from '../compiler_util/identifier_util';
 import {CompilerConfig} from '../config';
-import {MapWrapper} from '../facade/collection';
 import {isPresent} from '../facade/lang';
 import {Identifiers, resolveIdentifier} from '../identifiers';
 import * as o from '../output/output_ast';
@@ -21,15 +20,32 @@ import {CompileElement, CompileNode} from './compile_element';
 import {CompileMethod} from './compile_method';
 import {CompilePipe} from './compile_pipe';
 import {CompileQuery, addQueryToTokenMap, createQueryList} from './compile_query';
-import {getPropertyInView, getViewFactoryName} from './util';
+import {getPropertyInView, getViewClassName} from './util';
+
+export enum CompileViewRootNodeType {
+  Node,
+  ViewContainer,
+  NgContent
+}
+
+export class CompileViewRootNode {
+  constructor(
+      public type: CompileViewRootNodeType, public expr: o.Expression,
+      public ngContentIndex?: number) {}
+}
 
 export class CompileView implements NameResolver {
   public viewType: ViewType;
   public viewQueries: Map<any, CompileQuery[]>;
 
+  public viewChildren: o.Expression[] = [];
+
   public nodes: CompileNode[] = [];
-  // root nodes or AppElements for ViewContainers
-  public rootNodesOrAppElements: o.Expression[] = [];
+
+  public rootNodes: CompileViewRootNode[] = [];
+  public lastRenderNode: o.Expression = o.NULL_EXPR;
+
+  public viewContainers: o.Expression[] = [];
 
   public createMethod: CompileMethod;
   public animationBindingsMethod: CompileMethod;
@@ -49,7 +65,6 @@ export class CompileView implements NameResolver {
   public fields: o.ClassField[] = [];
   public getters: o.ClassGetter[] = [];
   public disposables: o.Expression[] = [];
-  public subscriptions: o.Expression[] = [];
 
   public componentView: CompileView;
   public purePipes = new Map<string, CompilePipe>();
@@ -57,7 +72,7 @@ export class CompileView implements NameResolver {
   public locals = new Map<string, o.Expression>();
   public className: string;
   public classType: o.Type;
-  public viewFactory: o.ReadVarExpr;
+  public classExpr: o.ReadVarExpr;
 
   public literalArrayCount = 0;
   public literalMapCount = 0;
@@ -85,9 +100,9 @@ export class CompileView implements NameResolver {
     this.detachMethod = new CompileMethod(this);
 
     this.viewType = getViewType(component, viewIndex);
-    this.className = `_View_${component.type.name}${viewIndex}`;
+    this.className = getViewClassName(component, viewIndex);
     this.classType = o.importType(new CompileIdentifierMetadata({name: this.className}));
-    this.viewFactory = o.variable(getViewFactoryName(component, viewIndex));
+    this.classExpr = o.variable(this.className);
     if (this.viewType === ViewType.COMPONENT || this.viewType === ViewType.HOST) {
       this.componentView = this;
     } else {
@@ -104,16 +119,6 @@ export class CompileView implements NameResolver {
         var queryList = createQueryList(queryMeta, directiveInstance, propName, this);
         var query = new CompileQuery(queryMeta, queryList, directiveInstance, this);
         addQueryToTokenMap(viewQueries, query);
-      });
-      var constructorViewQueryCount = 0;
-      this.component.type.diDeps.forEach((dep) => {
-        if (isPresent(dep.viewQuery)) {
-          var queryList = o.THIS_EXPR.prop('declarationAppElement')
-                              .prop('componentConstructorViewQueries')
-                              .key(o.literal(constructorViewQueryCount++));
-          var query = new CompileQuery(dep.viewQuery, queryList, null, this);
-          addQueryToTokenMap(viewQueries, query);
-        }
       });
     }
     this.viewQueries = viewQueries;
@@ -147,19 +152,21 @@ export class CompileView implements NameResolver {
   }
 
   afterNodes() {
-    MapWrapper.values(this.viewQueries)
+    Array.from(this.viewQueries.values())
         .forEach(
-            (queries) => queries.forEach(
-                (query) => query.afterChildren(this.createMethod, this.updateViewQueriesMethod)));
+            queries => queries.forEach(
+                q => q.afterChildren(this.createMethod, this.updateViewQueriesMethod)));
   }
 }
 
 function getViewType(component: CompileDirectiveMetadata, embeddedTemplateIndex: number): ViewType {
   if (embeddedTemplateIndex > 0) {
     return ViewType.EMBEDDED;
-  } else if (component.type.isHost) {
-    return ViewType.HOST;
-  } else {
-    return ViewType.COMPONENT;
   }
+
+  if (component.type.isHost) {
+    return ViewType.HOST;
+  }
+
+  return ViewType.COMPONENT;
 }

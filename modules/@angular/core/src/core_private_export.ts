@@ -14,19 +14,21 @@ import {AnimationSequencePlayer as AnimationSequencePlayer_} from './animation/a
 import * as animationUtils from './animation/animation_style_util';
 import {AnimationStyles as AnimationStyles_} from './animation/animation_styles';
 import {AnimationTransition} from './animation/animation_transition';
+import * as application_tokens from './application_tokens';
 import * as change_detection_util from './change_detection/change_detection_util';
 import * as constants from './change_detection/constants';
 import * as console from './console';
 import * as debug from './debug/debug_renderer';
 import * as reflective_provider from './di/reflective_provider';
 import {ComponentStillLoadingError} from './linker/compiler';
+import * as component_factory from './linker/component_factory';
 import * as component_factory_resolver from './linker/component_factory_resolver';
 import * as debug_context from './linker/debug_context';
-import * as element from './linker/element';
 import * as ng_module_factory from './linker/ng_module_factory';
 import * as ng_module_factory_loader from './linker/ng_module_factory_loader';
 import * as template_ref from './linker/template_ref';
 import * as view from './linker/view';
+import * as view_container from './linker/view_container';
 import * as view_type from './linker/view_type';
 import * as view_utils from './linker/view_utils';
 import * as lifecycle_hooks from './metadata/lifecycle_hooks';
@@ -56,8 +58,9 @@ export var __core_private__: {
   _MethodFn?: reflection_types.MethodFn;
   CodegenComponentFactoryResolver:
       typeof component_factory_resolver.CodegenComponentFactoryResolver,
+  ComponentRef_: typeof component_factory.ComponentRef_,
   _CodegenComponentFactoryResolver?: component_factory_resolver.CodegenComponentFactoryResolver,
-  AppElement: typeof element.AppElement, _AppElement?: element.AppElement,
+  ViewContainer: typeof view_container.ViewContainer, _ViewContainer?: view_container.ViewContainer,
   AppView: typeof view.AppView, _AppView?: view.AppView<any>,
   DebugAppView: typeof view.DebugAppView, _DebugAppView?: view.DebugAppView<any>,
   NgModuleInjector: typeof ng_module_factory.NgModuleInjector,
@@ -72,7 +75,9 @@ export var __core_private__: {
   UNINITIALIZED: typeof change_detection_util.UNINITIALIZED,
   ValueUnwrapper: typeof change_detection_util.ValueUnwrapper,
   _ValueUnwrapper?: change_detection_util.ValueUnwrapper,
-  RenderDebugInfo: typeof api.RenderDebugInfo, _RenderDebugInfo?: api.RenderDebugInfo,
+  RenderDebugInfo: typeof api.RenderDebugInfo,
+  _RenderDebugInfo?: api.RenderDebugInfo,
+  _DirectRenderer?: api.DirectRenderer,
   TemplateRef_: typeof template_ref.TemplateRef_, _TemplateRef_?: template_ref.TemplateRef_<any>,
   ReflectionCapabilities: typeof reflection_capabilities.ReflectionCapabilities,
   _ReflectionCapabilities?: reflection_capabilities.ReflectionCapabilities,
@@ -94,6 +99,7 @@ export var __core_private__: {
   clearStyles: typeof animationUtils.clearStyles,
   renderStyles: typeof animationUtils.renderStyles,
   collectAndResolveStyles: typeof animationUtils.collectAndResolveStyles,
+  APP_ID_RANDOM_PROVIDER: typeof application_tokens.APP_ID_RANDOM_PROVIDER,
   AnimationStyles: typeof AnimationStyles_, _AnimationStyles?: AnimationStyles_,
   ANY_STATE: typeof ANY_STATE_,
   DEFAULT_STATE: typeof DEFAULT_STATE_,
@@ -112,7 +118,8 @@ export var __core_private__: {
   LIFECYCLE_HOOKS_VALUES: lifecycle_hooks.LIFECYCLE_HOOKS_VALUES,
   ReflectorReader: reflector_reader.ReflectorReader,
   CodegenComponentFactoryResolver: component_factory_resolver.CodegenComponentFactoryResolver,
-  AppElement: element.AppElement,
+  ComponentRef_: component_factory.ComponentRef_,
+  ViewContainer: view_container.ViewContainer,
   AppView: view.AppView,
   DebugAppView: view.DebugAppView,
   NgModuleInjector: ng_module_factory.NgModuleInjector,
@@ -144,6 +151,7 @@ export var __core_private__: {
   clearStyles: animationUtils.clearStyles,
   renderStyles: animationUtils.renderStyles,
   collectAndResolveStyles: animationUtils.collectAndResolveStyles,
+  APP_ID_RANDOM_PROVIDER: application_tokens.APP_ID_RANDOM_PROVIDER,
   AnimationStyles: AnimationStyles_,
   ANY_STATE: ANY_STATE_,
   DEFAULT_STATE: DEFAULT_STATE_,

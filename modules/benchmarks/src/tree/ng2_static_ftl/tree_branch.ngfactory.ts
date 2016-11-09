@@ -8,8 +8,8 @@
 import * as import7 from '@angular/core/src/change_detection/change_detection';
 import * as import5 from '@angular/core/src/di/injector';
 import * as import9 from '@angular/core/src/linker/component_factory';
-import * as import2 from '@angular/core/src/linker/element';
 import * as import1 from '@angular/core/src/linker/view';
+import * as import2 from '@angular/core/src/linker/view_container';
 import * as import6 from '@angular/core/src/linker/view_type';
 import * as import4 from '@angular/core/src/linker/view_utils';
 import * as import8 from '@angular/core/src/metadata/view';
@@ -65,7 +65,7 @@ export class View_TreeTreeComponent {
       this._el_0.style.backgroundColor = currVal_0;
       this._expr_0 = currVal_0;
     }
-    const currVal_1: any = import4.interpolate(1, ' ', this.context.data.value, ' ');
+    const currVal_1: any = import4.inlineInterpolate(1, ' ', this.context.data.value, ' ');
     if (import4.checkBinding(throwOnChange, this._expr_1, currVal_1)) {
       this._text_1.nodeValue = currVal_1;
       this._expr_1 = currVal_1;

@@ -61,6 +61,38 @@ function declareTests({useJit}: {useJit: boolean}) {
         expect(fixture.nativeElement).toHaveText('');
       });
 
+      it('should allow both null and undefined in expressions', () => {
+        const template = '<div>{{null == undefined}}|{{null === undefined}}</div>';
+        const fixture = TestBed.configureTestingModule({declarations: [MyComp]})
+                            .overrideComponent(MyComp, {set: {template}})
+                            .createComponent(MyComp);
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveText('true|false');
+      });
+
+      it('should support an arbitrary number of interpolations in an element', () => {
+        TestBed.configureTestingModule({declarations: [MyComp]});
+        const template =
+            `<div>before{{'0'}}a{{'1'}}b{{'2'}}c{{'3'}}d{{'4'}}e{{'5'}}f{{'6'}}g{{'7'}}h{{'8'}}i{{'9'}}j{{'10'}}after</div>`;
+        const fixture =
+            TestBed.overrideComponent(MyComp, {set: {template}}).createComponent(MyComp);
+
+        fixture.detectChanges();
+        expect(fixture.nativeElement).toHaveText('before0a1b2c3d4e5f6g7h8i9j10after');
+      });
+
+      it('should use a blank string when interpolation evaluates to null or undefined with an arbitrary number of interpolations',
+         () => {
+           TestBed.configureTestingModule({declarations: [MyComp]});
+           const template =
+               `<div>0{{null}}a{{undefined}}b{{null}}c{{undefined}}d{{null}}e{{undefined}}f{{null}}g{{undefined}}h{{null}}i{{undefined}}j{{null}}1</div>`;
+           const fixture =
+               TestBed.overrideComponent(MyComp, {set: {template}}).createComponent(MyComp);
+
+           fixture.detectChanges();
+           expect(fixture.nativeElement).toHaveText('0abcdefghij1');
+         });
+
       it('should consume element binding changes', () => {
         TestBed.configureTestingModule({declarations: [MyComp]});
         const template = '<div [id]="ctxProp"></div>';
@@ -798,7 +830,20 @@ function declareTests({useJit}: {useJit: boolean}) {
         expect(listener.eventTypes).toEqual([]);
       });
 
-      it('should support updating host element via hostAttributes', () => {
+      it('should support updating host element via hostAttributes on root elements', () => {
+        @Component({host: {'role': 'button'}, template: ''})
+        class ComponentUpdatingHostAttributes {
+        }
+
+        TestBed.configureTestingModule({declarations: [ComponentUpdatingHostAttributes]});
+        const fixture = TestBed.createComponent(ComponentUpdatingHostAttributes);
+
+        fixture.detectChanges();
+
+        expect(getDOM().getAttribute(fixture.debugElement.nativeElement, 'role')).toEqual('button');
+      });
+
+      it('should support updating host element via hostAttributes on host elements', () => {
         TestBed.configureTestingModule({declarations: [MyComp, DirectiveUpdatingHostAttributes]});
         const template = '<div update-host-attributes></div>';
         TestBed.overrideComponent(MyComp, {set: {template}});
@@ -972,11 +1017,24 @@ function declareTests({useJit}: {useJit: boolean}) {
                                .createComponent(MyComp);
              var tc = fixture.debugElement.children[0].children[0];
              var dynamicVp: DynamicViewport = tc.injector.get(DynamicViewport);
-             dynamicVp.done.then((_) => {
-               fixture.detectChanges();
-               expect(fixture.debugElement.children[0].children[1].nativeElement)
-                   .toHaveText('dynamic greet');
-             });
+             dynamicVp.create();
+             fixture.detectChanges();
+             expect(fixture.debugElement.children[0].children[1].nativeElement)
+                 .toHaveText('dynamic greet');
+           }));
+
+        it('should allow to create multiple ViewContainerRef at a location', async(() => {
+             var fixture = TestBed.configureTestingModule({schemas: [NO_ERRORS_SCHEMA]})
+                               .createComponent(MyComp);
+             var tc = fixture.debugElement.children[0].children[0];
+             var dynamicVp: DynamicViewport = tc.injector.get(DynamicViewport);
+             dynamicVp.create();
+             dynamicVp.create();
+             fixture.detectChanges();
+             expect(fixture.debugElement.children[0].children[1].nativeElement)
+                 .toHaveText('dynamic greet');
+             expect(fixture.debugElement.children[0].children[2].nativeElement)
+                 .toHaveText('dynamic greet');
            }));
       });
 
@@ -1657,17 +1715,18 @@ class SimpleImperativeViewComponent {
 
 @Directive({selector: 'dynamic-vp'})
 class DynamicViewport {
-  done: Promise<any>;
-  constructor(vc: ViewContainerRef, componentFactoryResolver: ComponentFactoryResolver) {
+  private componentFactory: ComponentFactory<ChildCompUsingService>;
+  private injector: Injector;
+  constructor(private vc: ViewContainerRef, componentFactoryResolver: ComponentFactoryResolver) {
     var myService = new MyService();
     myService.greeting = 'dynamic greet';
 
-    var injector = ReflectiveInjector.resolveAndCreate(
+    this.injector = ReflectiveInjector.resolveAndCreate(
         [{provide: MyService, useValue: myService}], vc.injector);
-    this.done =
-        Promise.resolve(componentFactoryResolver.resolveComponentFactory(ChildCompUsingService))
-            .then((componentFactory) => vc.createComponent(componentFactory, 0, injector));
+    this.componentFactory = componentFactoryResolver.resolveComponentFactory(ChildCompUsingService);
   }
+
+  create() { this.vc.createComponent(this.componentFactory, this.vc.length, this.injector); }
 }
 
 @Directive({selector: '[my-dir]', inputs: ['dirProp: elprop'], exportAs: 'mydir'})

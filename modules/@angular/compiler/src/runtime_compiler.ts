@@ -24,7 +24,8 @@ import {ComponentStillLoadingError} from './private_import_core';
 import {CompiledStylesheet, StyleCompiler} from './style_compiler';
 import {TemplateParser} from './template_parser/template_parser';
 import {SyncAsyncResult} from './util';
-import {ComponentFactoryDependency, DirectiveWrapperDependency, ViewCompiler, ViewFactoryDependency} from './view_compiler/view_compiler';
+import {ComponentFactoryDependency, DirectiveWrapperDependency, ViewClassDependency, ViewCompiler} from './view_compiler/view_compiler';
+
 
 
 /**
@@ -42,7 +43,6 @@ export class RuntimeCompiler implements Compiler {
   private _compiledHostTemplateCache = new Map<Type<any>, CompiledTemplate>();
   private _compiledDirectiveWrapperCache = new Map<Type<any>, Type<any>>();
   private _compiledNgModuleCache = new Map<Type<any>, NgModuleFactory<any>>();
-  private _animationParser = new AnimationParser();
   private _animationCompiler = new AnimationCompiler();
 
   constructor(
@@ -51,7 +51,7 @@ export class RuntimeCompiler implements Compiler {
       private _styleCompiler: StyleCompiler, private _viewCompiler: ViewCompiler,
       private _ngModuleCompiler: NgModuleCompiler,
       private _directiveWrapperCompiler: DirectiveWrapperCompiler,
-      private _compilerConfig: CompilerConfig) {}
+      private _compilerConfig: CompilerConfig, private _animationParser: AnimationParser) {}
 
   get injector(): Injector { return this._injector; }
 
@@ -305,11 +305,11 @@ export class RuntimeCompiler implements Compiler {
         template.viewPipes, compiledAnimations);
     compileResult.dependencies.forEach((dep) => {
       let depTemplate: CompiledTemplate;
-      if (dep instanceof ViewFactoryDependency) {
-        let vfd = <ViewFactoryDependency>dep;
+      if (dep instanceof ViewClassDependency) {
+        let vfd = <ViewClassDependency>dep;
         depTemplate = this._assertComponentLoaded(vfd.comp.reference, false);
-        vfd.placeholder.reference = depTemplate.proxyViewFactory;
-        vfd.placeholder.name = `viewFactory_${vfd.comp.name}`;
+        vfd.placeholder.reference = depTemplate.proxyViewClass;
+        vfd.placeholder.name = `View_${vfd.comp.name}`;
       } else if (dep instanceof ComponentFactoryDependency) {
         let cfd = <ComponentFactoryDependency>dep;
         depTemplate = this._assertComponentLoaded(cfd.comp.reference, true);
@@ -320,19 +320,18 @@ export class RuntimeCompiler implements Compiler {
         dwd.placeholder.reference = this._assertDirectiveWrapper(dwd.dir.reference);
       }
     });
-    const statements =
-        stylesCompileResult.componentStylesheet.statements.concat(compileResult.statements);
-    compiledAnimations.forEach(
-        entry => { entry.statements.forEach(statement => { statements.push(statement); }); });
-    let factory: any;
+    const statements = stylesCompileResult.componentStylesheet.statements
+                           .concat(...compiledAnimations.map(ca => ca.statements))
+                           .concat(compileResult.statements);
+    let viewClass: any;
     if (!this._compilerConfig.useJit) {
-      factory = interpretStatements(statements, compileResult.viewFactoryVar);
+      viewClass = interpretStatements(statements, compileResult.viewClassVar);
     } else {
-      factory = jitStatements(
+      viewClass = jitStatements(
           `/${template.ngModule.type.name}/${template.compType.name}/${template.isHost?'host':'component'}.ngfactory.js`,
-          statements, compileResult.viewFactoryVar);
+          statements, compileResult.viewClassVar);
     }
-    template.compiled(factory);
+    template.compiled(viewClass);
   }
 
   private _resolveStylesCompileResult(
@@ -359,8 +358,8 @@ export class RuntimeCompiler implements Compiler {
 }
 
 class CompiledTemplate {
-  private _viewFactory: Function = null;
-  proxyViewFactory: Function;
+  private _viewClass: Function = null;
+  proxyViewClass: Type<any>;
   proxyComponentFactory: ComponentFactory<any>;
   loading: Promise<any> = null;
   private _normalizedCompMeta: CompileDirectiveMetadata = null;
@@ -385,15 +384,16 @@ class CompiledTemplate {
         this.viewDirectives.push(dirMeta);
       }
     });
-    this.proxyViewFactory = (...args: any[]) => {
-      if (!this._viewFactory) {
+    const self = this;
+    this.proxyViewClass = <any>function() {
+      if (!self._viewClass) {
         throw new Error(
-            `Illegal state: CompiledTemplate for ${stringify(this.compType)} is not compiled yet!`);
+            `Illegal state: CompiledTemplate for ${stringify(self.compType)} is not compiled yet!`);
       }
-      return this._viewFactory.apply(null, args);
+      return self._viewClass.apply(this, arguments);
     };
     this.proxyComponentFactory = isHost ?
-        new ComponentFactory<any>(selector, this.proxyViewFactory, compType.reference) :
+        new ComponentFactory<any>(selector, this.proxyViewClass, compType.reference) :
         null;
     if (_normalizeResult.syncResult) {
       this._normalizedCompMeta = _normalizeResult.syncResult;
@@ -412,8 +412,9 @@ class CompiledTemplate {
     return this._normalizedCompMeta;
   }
 
-  compiled(viewFactory: Function) {
-    this._viewFactory = viewFactory;
+  compiled(viewClass: Function) {
+    this._viewClass = viewClass;
+    this.proxyViewClass.prototype = viewClass.prototype;
     this.isCompiled = true;
   }
 

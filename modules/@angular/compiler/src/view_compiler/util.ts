@@ -12,6 +12,7 @@ import {createDiTokenExpression} from '../compiler_util/identifier_util';
 import {isPresent} from '../facade/lang';
 import {Identifiers, resolveIdentifier} from '../identifiers';
 import * as o from '../output/output_ast';
+import {ViewType} from '../private_import_core';
 
 import {CompileView} from './compile_view';
 
@@ -24,7 +25,7 @@ export function getPropertyInView(
     var currView: CompileView = callingView;
     while (currView !== definedView && isPresent(currView.declarationElement.view)) {
       currView = currView.declarationElement.view;
-      viewProp = viewProp.prop('parent');
+      viewProp = viewProp.prop('parentView');
     }
     if (currView !== definedView) {
       throw new Error(
@@ -56,40 +57,23 @@ class _ReplaceViewTransformer extends o.ExpressionTransformer {
 }
 
 export function injectFromViewParentInjector(
-    token: CompileTokenMetadata, optional: boolean): o.Expression {
-  var args = [createDiTokenExpression(token)];
+    view: CompileView, token: CompileTokenMetadata, optional: boolean): o.Expression {
+  let viewExpr: o.Expression;
+  if (view.viewType === ViewType.HOST) {
+    viewExpr = o.THIS_EXPR;
+  } else {
+    viewExpr = o.THIS_EXPR.prop('parentView');
+  }
+  let args = [createDiTokenExpression(token), o.THIS_EXPR.prop('parentIndex')];
   if (optional) {
     args.push(o.NULL_EXPR);
   }
-  return o.THIS_EXPR.prop('parentInjector').callMethod('get', args);
+  return viewExpr.callMethod('injectorGet', args);
 }
 
-export function getViewFactoryName(
+export function getViewClassName(
     component: CompileDirectiveMetadata, embeddedTemplateIndex: number): string {
-  return `viewFactory_${component.type.name}${embeddedTemplateIndex}`;
-}
-
-export function createFlatArray(expressions: o.Expression[]): o.Expression {
-  var lastNonArrayExpressions: o.Expression[] = [];
-  var result: o.Expression = o.literalArr([]);
-  for (var i = 0; i < expressions.length; i++) {
-    var expr = expressions[i];
-    if (expr.type instanceof o.ArrayType) {
-      if (lastNonArrayExpressions.length > 0) {
-        result =
-            result.callMethod(o.BuiltinMethod.ConcatArray, [o.literalArr(lastNonArrayExpressions)]);
-        lastNonArrayExpressions = [];
-      }
-      result = result.callMethod(o.BuiltinMethod.ConcatArray, [expr]);
-    } else {
-      lastNonArrayExpressions.push(expr);
-    }
-  }
-  if (lastNonArrayExpressions.length > 0) {
-    result =
-        result.callMethod(o.BuiltinMethod.ConcatArray, [o.literalArr(lastNonArrayExpressions)]);
-  }
-  return result;
+  return `View_${component.type.name}${embeddedTemplateIndex}`;
 }
 
 export function getHandleEventMethodName(elementIndex: number): string {

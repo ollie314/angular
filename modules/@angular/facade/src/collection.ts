@@ -6,47 +6,14 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {getSymbolIterator, isBlank, isJsObject, isPresent} from './lang';
-
-// Safari doesn't implement MapIterator.next(), which is used is Traceur's polyfill of Array.from
-// TODO(mlaval): remove the work around once we have a working polyfill of Array.from
-const _arrayFromMap: {(m: Map<any, any>, getValues: boolean): any[]} = (function() {
-  try {
-    if ((<any>(new Map()).values()).next) {
-      return function createArrayFromMap(m: Map<any, any>, getValues: boolean): any[] {
-        return getValues ? (<any>Array).from(m.values()) : (<any>Array).from(m.keys());
-      };
-    }
-  } catch (e) {
-  }
-  return function createArrayFromMapWithForeach(m: Map<any, any>, getValues: boolean): any[] {
-    var res = new Array(m.size), i = 0;
-    m.forEach((v, k) => {
-      res[i] = getValues ? v : k;
-      i++;
-    });
-    return res;
-  };
-})();
-
-export class MapWrapper {
-  static createFromStringMap<T>(stringMap: {[key: string]: T}): Map<string, T> {
-    var result = new Map<string, T>();
-    for (var prop in stringMap) {
-      result.set(prop, stringMap[prop]);
-    }
-    return result;
-  }
-  static keys<K>(m: Map<K, any>): K[] { return _arrayFromMap(m, false); }
-  static values<V>(m: Map<any, V>): V[] { return _arrayFromMap(m, true); }
-}
+import {getSymbolIterator, isJsObject, isPresent} from './lang';
 
 /**
  * Wraps Javascript Objects
  */
 export class StringMapWrapper {
   static merge<V>(m1: {[key: string]: V}, m2: {[key: string]: V}): {[key: string]: V} {
-    var m: {[key: string]: V} = {};
+    const m: {[key: string]: V} = {};
 
     for (let k of Object.keys(m1)) {
       m[k] = m1[k];
@@ -88,7 +55,9 @@ export class ListWrapper {
   static removeAll<T>(list: T[], items: T[]) {
     for (let i = 0; i < items.length; ++i) {
       const index = list.indexOf(items[i]);
-      list.splice(index, 1);
+      if (index > -1) {
+        list.splice(index, 1);
+      }
     }
   }
 
@@ -109,47 +78,13 @@ export class ListWrapper {
     return true;
   }
 
-  static maximum<T>(list: T[], predicate: (t: T) => number): T {
-    if (list.length == 0) {
-      return null;
-    }
-    var solution: any /** TODO #???? */ = null;
-    var maxValue = -Infinity;
-    for (var index = 0; index < list.length; index++) {
-      var candidate = list[index];
-      if (candidate == null) {
-        continue;
-      }
-      var candidateValue = predicate(candidate);
-      if (candidateValue > maxValue) {
-        solution = candidate;
-        maxValue = candidateValue;
-      }
-    }
-    return solution;
-  }
-
   static flatten<T>(list: Array<T|T[]>): T[] {
-    var target: any[] = [];
-    _flattenArray(list, target);
-    return target;
+    return list.reduce((flat: any[], item: T | T[]): T[] => {
+      const flatItem = Array.isArray(item) ? ListWrapper.flatten(item) : item;
+      return (<T[]>flat).concat(flatItem);
+    }, []);
   }
 }
-
-function _flattenArray(source: any[], target: any[]): any[] {
-  if (isPresent(source)) {
-    for (let i = 0; i < source.length; i++) {
-      const item = source[i];
-      if (Array.isArray(item)) {
-        _flattenArray(item, target);
-      } else {
-        target.push(item);
-      }
-    }
-  }
-  return target;
-}
-
 
 export function isListLikeIterable(obj: any): boolean {
   if (!isJsObject(obj)) return false;
@@ -158,7 +93,8 @@ export function isListLikeIterable(obj: any): boolean {
        getSymbolIterator() in obj);  // JS Iterable have a Symbol.iterator prop
 }
 
-export function areIterablesEqual(a: any, b: any, comparator: Function): boolean {
+export function areIterablesEqual(
+    a: any, b: any, comparator: (a: any, b: any) => boolean): boolean {
   const iterator1 = a[getSymbolIterator()]();
   const iterator2 = b[getSymbolIterator()]();
 
@@ -171,9 +107,9 @@ export function areIterablesEqual(a: any, b: any, comparator: Function): boolean
   }
 }
 
-export function iterateListLike(obj: any, fn: Function) {
+export function iterateListLike(obj: any, fn: (p: any) => any) {
   if (Array.isArray(obj)) {
-    for (var i = 0; i < obj.length; i++) {
+    for (let i = 0; i < obj.length; i++) {
       fn(obj[i]);
     }
   } else {

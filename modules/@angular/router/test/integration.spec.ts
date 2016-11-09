@@ -11,7 +11,6 @@ import {Component, NgModule, NgModuleFactoryLoader} from '@angular/core';
 import {ComponentFixture, TestBed, async, fakeAsync, inject, tick} from '@angular/core/testing';
 import {expect} from '@angular/platform-browser/testing/matchers';
 import {Observable} from 'rxjs/Observable';
-import {of } from 'rxjs/observable/of';
 import {map} from 'rxjs/operator/map';
 
 import {ActivatedRoute, ActivatedRouteSnapshot, CanActivate, CanDeactivate, Event, NavigationCancel, NavigationEnd, NavigationError, NavigationStart, PRIMARY_OUTLET, Params, PreloadAllModules, PreloadingStrategy, Resolve, Router, RouterModule, RouterStateSnapshot, RoutesRecognized, UrlHandlingStrategy, UrlSegmentGroup, UrlTree} from '../index';
@@ -71,6 +70,62 @@ describe('Integration', () => {
           }
         ]
       });
+    });
+
+    describe('should advance the parent route after deactivating its children', () => {
+      let log: string[] = [];
+
+      @Component({template: '<router-outlet></router-outlet>'})
+      class Parent {
+        constructor(route: ActivatedRoute) {
+          route.params.subscribe((s: any) => { log.push(s); });
+        }
+      }
+
+      @Component({template: 'child1'})
+      class Child1 {
+        ngOnDestroy() { log.push('child1 destroy'); }
+      }
+
+      @Component({template: 'child2'})
+      class Child2 {
+        constructor() { log.push('child2 constructor'); }
+      }
+
+      @NgModule({
+        declarations: [Parent, Child1, Child2],
+        entryComponents: [Parent, Child1, Child2],
+        imports: [RouterModule]
+      })
+      class TestModule {
+      }
+
+      beforeEach(() => {
+        log = [];
+        TestBed.configureTestingModule({imports: [TestModule]});
+      });
+
+      it('should work',
+         fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+           const fixture = createRoot(router, RootCmp);
+
+           router.resetConfig([{
+             path: 'parent/:id',
+             component: Parent,
+             children:
+                 [{path: 'child1', component: Child1}, {path: 'child2', component: Child2}]
+           }]);
+
+           router.navigateByUrl('/parent/1/child1');
+           advance(fixture);
+
+           router.navigateByUrl('/parent/2/child2');
+           advance(fixture);
+
+           expect(location.path()).toEqual('/parent/2/child2');
+           expect(log).toEqual([{id: '1'}, 'child1 destroy', {id: '2'}, 'child2 constructor']);
+         })));
+
     });
 
     it('should execute navigations serialy',
@@ -1163,7 +1218,9 @@ describe('Integration', () => {
           TestBed.configureTestingModule({
             providers: [{
               provide: 'CanActivate',
-              useValue: (a: ActivatedRouteSnapshot, b: RouterStateSnapshot) => of (false),
+              useValue: (a: ActivatedRouteSnapshot, b: RouterStateSnapshot) => {
+                return Observable.create((observer: any) => { observer.next(false); });
+              }
             }]
           });
         });
@@ -1213,6 +1270,35 @@ describe('Integration', () => {
              expect(location.path()).toEqual('/team/22');
            })));
       });
+
+      describe('should reset the location when cancleling a navigation', () => {
+        beforeEach(() => {
+          TestBed.configureTestingModule({
+            providers: [{
+              provide: 'alwaysFalse',
+              useValue: (a: ActivatedRouteSnapshot, b: RouterStateSnapshot) => { return false; }
+            }]
+          });
+        });
+
+        it('works', fakeAsync(inject([Router, Location], (router: Router, location: Location) => {
+             const fixture = createRoot(router, RootCmp);
+
+             router.resetConfig([
+               {path: 'one', component: SimpleCmp},
+               {path: 'two', component: SimpleCmp, canActivate: ['alwaysFalse']}
+             ]);
+
+             router.navigateByUrl('/one');
+             advance(fixture);
+             expect(location.path()).toEqual('/one');
+
+             location.go('/two');
+             advance(fixture);
+             expect(location.path()).toEqual('/one');
+
+           })));
+      });
     });
 
     describe('CanDeactivate', () => {
@@ -1245,7 +1331,7 @@ describe('Integration', () => {
               {
                 provide: 'RecordingDeactivate',
                 useValue: (c: any, a: ActivatedRouteSnapshot, b: RouterStateSnapshot) => {
-                  log.push(['Deactivate', a.routeConfig.path]);
+                  log.push({path: a.routeConfig.path, component: c});
                   return true;
                 }
               },
@@ -1290,7 +1376,11 @@ describe('Integration', () => {
                    children: [{
                      path: 'child',
                      canDeactivate: ['RecordingDeactivate'],
-                     children: [{path: 'simple', component: SimpleCmp}]
+                     children: [{
+                       path: 'simple',
+                       component: SimpleCmp,
+                       canDeactivate: ['RecordingDeactivate']
+                     }]
                    }]
                  }]
                },
@@ -1304,9 +1394,12 @@ describe('Integration', () => {
              router.navigateByUrl('/simple');
              advance(fixture);
 
-             expect(log).toEqual([
-               ['Deactivate', 'child'], ['Deactivate', 'parent'], ['Deactivate', 'grandparent']
+             const child = fixture.debugElement.children[1].componentInstance;
+
+             expect(log.map((a: any) => a.path)).toEqual([
+               'simple', 'child', 'parent', 'grandparent'
              ]);
+             expect(log.map((a: any) => a.component)).toEqual([child, null, null, null]);
            })));
 
         it('works with aux routes',
@@ -1333,7 +1426,7 @@ describe('Integration', () => {
              router.navigate(['two-outlets', {outlets: {aux: null}}]);
              advance(fixture);
 
-             expect(log).toEqual([['Deactivate', 'b']]);
+             expect(log.map((a: any) => a.path)).toEqual(['b']);
              expect(location.path()).toEqual('/two-outlets/(a)');
            })));
 
@@ -1402,7 +1495,7 @@ describe('Integration', () => {
             providers: [{
               provide: 'CanDeactivate',
               useValue: (c: TeamCmp, a: ActivatedRouteSnapshot, b: RouterStateSnapshot) => {
-                return of (false);
+                return Observable.create((observer: any) => { observer.next(false); });
               }
             }]
           });

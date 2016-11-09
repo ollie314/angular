@@ -8,7 +8,6 @@
 
 
 import {CompileDiDependencyMetadata, CompileDirectiveMetadata, CompileNgModuleMetadata, CompileProviderMetadata, CompileQueryMetadata, CompileTokenMetadata, CompileTypeMetadata} from './compile_metadata';
-import {MapWrapper} from './facade/collection';
 import {isBlank, isPresent} from './facade/lang';
 import {Identifiers, resolveIdentifierToken} from './identifiers';
 import {ParseError, ParseSourceSpan} from './parse_util';
@@ -60,7 +59,7 @@ export class ProviderElementContext {
         _resolveProvidersFromDirectives(directivesMeta, _sourceSpan, viewContext.errors);
     this._contentQueries = _getContentQueries(directivesMeta);
     var queriedTokens = new Map<any, boolean>();
-    MapWrapper.values(this._allProviders).forEach((provider) => {
+    Array.from(this._allProviders.values()).forEach((provider) => {
       this._addQueryReadsTo(provider.token, queriedTokens);
     });
     refs.forEach((refAst) => {
@@ -72,7 +71,7 @@ export class ProviderElementContext {
     }
 
     // create the providers that we know are eager first
-    MapWrapper.values(this._allProviders).forEach((provider) => {
+    Array.from(this._allProviders.values()).forEach((provider) => {
       const eager = provider.eager || isPresent(queriedTokens.get(provider.token.reference));
       if (eager) {
         this._getOrCreateLocalProvider(provider.providerType, provider.token, true);
@@ -82,12 +81,14 @@ export class ProviderElementContext {
 
   afterElement() {
     // collect lazy providers
-    MapWrapper.values(this._allProviders).forEach((provider) => {
+    Array.from(this._allProviders.values()).forEach((provider) => {
       this._getOrCreateLocalProvider(provider.providerType, provider.token, false);
     });
   }
 
-  get transformProviders(): ProviderAst[] { return MapWrapper.values(this._transformedProviders); }
+  get transformProviders(): ProviderAst[] {
+    return Array.from(this._transformedProviders.values());
+  }
 
   get transformedDirectiveAsts(): DirectiveAst[] {
     var sortedProviderTypes = this.transformProviders.map(provider => provider.token.identifier);
@@ -197,9 +198,6 @@ export class ProviderElementContext {
       return new CompileDiDependencyMetadata(
           {isValue: true, value: attrValue == null ? null : attrValue});
     }
-    if (isPresent(dep.query) || isPresent(dep.viewQuery)) {
-      return dep;
-    }
 
     if (isPresent(dep.token)) {
       // access builtints
@@ -299,14 +297,14 @@ export class NgModuleProviderAnalyzer {
   }
 
   parse(): ProviderAst[] {
-    MapWrapper.values(this._allProviders).forEach((provider) => {
+    Array.from(this._allProviders.values()).forEach((provider) => {
       this._getOrCreateLocalProvider(provider.token, provider.eager);
     });
     if (this._errors.length > 0) {
       const errorString = this._errors.join('\n');
       throw new Error(`Provider parse errors:\n${errorString}`);
     }
-    return MapWrapper.values(this._transformedProviders);
+    return Array.from(this._transformedProviders.values());
   }
 
   private _getOrCreateLocalProvider(token: CompileTokenMetadata, eager: boolean): ProviderAst {
@@ -503,11 +501,6 @@ function _getViewQueries(component: CompileDirectiveMetadata): Map<any, CompileQ
   if (isPresent(component.viewQueries)) {
     component.viewQueries.forEach((query) => _addQueryToTokenMap(viewQueries, query));
   }
-  component.type.diDeps.forEach((dep) => {
-    if (isPresent(dep.viewQuery)) {
-      _addQueryToTokenMap(viewQueries, dep.viewQuery);
-    }
-  });
   return viewQueries;
 }
 
@@ -518,11 +511,6 @@ function _getContentQueries(directives: CompileDirectiveMetadata[]):
     if (isPresent(directive.queries)) {
       directive.queries.forEach((query) => _addQueryToTokenMap(contentQueries, query));
     }
-    directive.type.diDeps.forEach((dep) => {
-      if (isPresent(dep.query)) {
-        _addQueryToTokenMap(contentQueries, dep.query);
-      }
-    });
   });
   return contentQueries;
 }
