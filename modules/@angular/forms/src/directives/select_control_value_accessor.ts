@@ -6,20 +6,20 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, ElementRef, Host, Input, OnDestroy, Optional, Renderer, forwardRef} from '@angular/core';
+import {Directive, ElementRef, Host, Input, OnDestroy, Optional, Provider, Renderer, forwardRef} from '@angular/core';
 
-import {isBlank, isPresent, isPrimitive, looseIdentical} from '../facade/lang';
+import {isPrimitive, looseIdentical} from '../facade/lang';
 
 import {ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor';
 
-export const SELECT_VALUE_ACCESSOR: any = {
+export const SELECT_VALUE_ACCESSOR: Provider = {
   provide: NG_VALUE_ACCESSOR,
   useExisting: forwardRef(() => SelectControlValueAccessor),
   multi: true
 };
 
 function _buildValueString(id: string, value: any): string {
-  if (isBlank(id)) return `${value}`;
+  if (id == null) return `${value}`;
   if (!isPrimitive(value)) value = 'Object';
   return `${id}: ${value}`.slice(0, 50);
 }
@@ -86,7 +86,7 @@ export class SelectControlValueAccessor implements ControlValueAccessor {
 
   writeValue(value: any): void {
     this.value = value;
-    var valueString = _buildValueString(this._getOptionId(value), value);
+    const valueString = _buildValueString(this._getOptionId(value), value);
     this._renderer.setElementProperty(this._elementRef.nativeElement, 'value', valueString);
   }
 
@@ -107,7 +107,7 @@ export class SelectControlValueAccessor implements ControlValueAccessor {
 
   /** @internal */
   _getOptionId(value: any): string {
-    for (let id of Array.from(this._optionMap.keys())) {
+    for (const id of Array.from(this._optionMap.keys())) {
       if (looseIdentical(this._optionMap.get(id), value)) return id;
     }
     return null;
@@ -115,8 +115,8 @@ export class SelectControlValueAccessor implements ControlValueAccessor {
 
   /** @internal */
   _getOptionValue(valueString: string): any {
-    let value = this._optionMap.get(_extractId(valueString));
-    return isPresent(value) ? value : valueString;
+    const id: string = _extractId(valueString);
+    return this._optionMap.has(id) ? this._optionMap.get(id) : valueString;
   }
 }
 
@@ -136,7 +136,7 @@ export class NgSelectOption implements OnDestroy {
   constructor(
       private _element: ElementRef, private _renderer: Renderer,
       @Optional() @Host() private _select: SelectControlValueAccessor) {
-    if (isPresent(this._select)) this.id = this._select._registerOption();
+    if (this._select) this.id = this._select._registerOption();
   }
 
   @Input('ngValue')
@@ -150,7 +150,7 @@ export class NgSelectOption implements OnDestroy {
   @Input('value')
   set value(value: any) {
     this._setElementValue(value);
-    if (isPresent(this._select)) this._select.writeValue(this._select.value);
+    if (this._select) this._select.writeValue(this._select.value);
   }
 
   /** @internal */
@@ -158,8 +158,8 @@ export class NgSelectOption implements OnDestroy {
     this._renderer.setElementProperty(this._element.nativeElement, 'value', value);
   }
 
-  ngOnDestroy() {
-    if (isPresent(this._select)) {
+  ngOnDestroy(): void {
+    if (this._select) {
       this._select._optionMap.delete(this.id);
       this._select.writeValue(this._select.value);
     }

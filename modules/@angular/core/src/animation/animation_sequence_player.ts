@@ -36,7 +36,7 @@ export class AnimationSequencePlayer implements AnimationPlayer {
       this._activePlayer = new NoOpAnimationPlayer();
       this._onFinish();
     } else {
-      var player = this._players[this._currentIndex++];
+      const player = this._players[this._currentIndex++];
       player.onDone(() => this._onNext(true));
 
       this._activePlayer = player;
@@ -100,10 +100,13 @@ export class AnimationSequencePlayer implements AnimationPlayer {
       this._onFinish();
       this._players.forEach(player => player.destroy());
       this._destroyed = true;
+      this._activePlayer = new NoOpAnimationPlayer();
     }
   }
 
-  setPosition(p: any /** TODO #9100 */): void { this._players[0].setPosition(p); }
+  setPosition(p: number): void { this._players[0].setPosition(p); }
 
   getPosition(): number { return this._players[0].getPosition(); }
+
+  get players(): AnimationPlayer[] { return this._players; }
 }

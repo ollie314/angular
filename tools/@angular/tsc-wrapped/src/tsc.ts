@@ -11,7 +11,6 @@ import * as path from 'path';
 import * as ts from 'typescript';
 
 import AngularCompilerOptions from './options';
-import {TsickleHost} from './compiler_host';
 
 /**
  * Our interface to the TypeScript standard compiler.
@@ -22,12 +21,13 @@ export interface CompilerInterface {
   readConfiguration(project: string, basePath: string):
       {parsed: ts.ParsedCommandLine, ngOptions: AngularCompilerOptions};
   typeCheck(compilerHost: ts.CompilerHost, program: ts.Program): void;
-  emit(compilerHost: ts.CompilerHost, program: ts.Program): number;
+  emit(program: ts.Program): number;
 }
 
 const DEBUG = false;
 
 function debug(msg: string, ...o: any[]) {
+  // tslint:disable-next-line:no-console
   if (DEBUG) console.log(msg, ...o);
 }
 
@@ -49,6 +49,26 @@ export function formatDiagnostics(diags: ts.Diagnostic[]): string {
 export function check(diags: ts.Diagnostic[]) {
   if (diags && diags.length && diags[0]) {
     throw new Error(formatDiagnostics(diags));
+  }
+}
+
+export function validateAngularCompilerOptions(options: AngularCompilerOptions): ts.Diagnostic[] {
+  if (options.annotationsAs) {
+    switch (options.annotationsAs) {
+      case 'decorators':
+      case 'static fields':
+        break;
+      default:
+        return [{
+          file: null,
+          start: null,
+          length: null,
+          messageText:
+              'Angular compiler options "annotationsAs" only supports "static fields" and "decorators"',
+          category: ts.DiagnosticCategory.Error,
+          code: 0
+        }];
+    }
   }
 }
 
@@ -80,7 +100,7 @@ export class Tsc implements CompilerInterface {
     // The issue is that old typescript only has `readDirectory` while
     // the newer TypeScript has additional `useCaseSensitiveFileNames` and
     // `fileExists`. Inlining will trigger an error of extra parameters.
-    let host = {
+    const host = {
       useCaseSensitiveFileNames: true,
       fileExists: existsSync,
       readDirectory: this.readDirectory
@@ -96,6 +116,8 @@ export class Tsc implements CompilerInterface {
     for (const key of Object.keys(this.parsed.options)) {
       this.ngOptions[key] = this.parsed.options[key];
     }
+    check(validateAngularCompilerOptions(this.ngOptions));
+
     return {parsed: this.parsed, ngOptions: this.ngOptions};
   }
 
@@ -103,24 +125,20 @@ export class Tsc implements CompilerInterface {
     debug('Checking global diagnostics...');
     check(program.getGlobalDiagnostics());
 
-    let diagnostics: ts.Diagnostic[] = [];
+    const diagnostics: ts.Diagnostic[] = [];
     debug('Type checking...');
 
-    for (let sf of program.getSourceFiles()) {
+    for (const sf of program.getSourceFiles()) {
       diagnostics.push(...ts.getPreEmitDiagnostics(program, sf));
     }
     check(diagnostics);
   }
 
-  emit(compilerHost: TsickleHost, oldProgram: ts.Program): number {
-    // Create a new program since the host may be different from the old program.
-    const program = ts.createProgram(this.parsed.fileNames, this.parsed.options, compilerHost);
+  emit(program: ts.Program): number {
     debug('Emitting outputs...');
     const emitResult = program.emit();
-    let diagnostics: ts.Diagnostic[] = [];
+    const diagnostics: ts.Diagnostic[] = [];
     diagnostics.push(...emitResult.diagnostics);
-
-    check(compilerHost.diagnostics);
     return emitResult.emitSkipped ? 1 : 0;
   }
 }

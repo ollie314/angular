@@ -187,6 +187,7 @@ export interface Route {
     component?: Type<any>;
     data?: Data;
     loadChildren?: LoadChildren;
+    matcher?: UrlMatcher;
     outlet?: string;
     path?: string;
     pathMatch?: string;
@@ -231,7 +232,9 @@ export declare class RouterLink {
     queryParams: {
         [k: string]: any;
     };
+    replaceUrl: boolean;
     routerLink: any[] | string;
+    skipLocationChange: boolean;
     urlTree: UrlTree;
     constructor(router: Router, route: ActivatedRoute, locationStrategy: LocationStrategy);
     onClick(): boolean;
@@ -261,11 +264,13 @@ export declare class RouterLinkWithHref implements OnChanges, OnDestroy {
     queryParams: {
         [k: string]: any;
     };
+    replaceUrl: boolean;
     routerLink: any[] | string;
     routerLinkOptions: {
         preserveQueryParams: boolean;
         preserveFragment: boolean;
     };
+    skipLocationChange: boolean;
     target: string;
     urlTree: UrlTree;
     constructor(router: Router, route: ActivatedRoute, locationStrategy: LocationStrategy);
@@ -288,9 +293,11 @@ export declare class RouterOutlet implements OnDestroy {
     component: Object;
     deactivateEvents: EventEmitter<any>;
     isActivated: boolean;
+    locationFactoryResolver: ComponentFactoryResolver;
+    locationInjector: Injector;
     outletMap: RouterOutletMap;
     constructor(parentOutletMap: RouterOutletMap, location: ViewContainerRef, resolver: ComponentFactoryResolver, name: string);
-    activate(activatedRoute: ActivatedRoute, loadedResolver: ComponentFactoryResolver, loadedInjector: Injector, providers: ResolvedReflectiveProvider[], outletMap: RouterOutletMap): void;
+    activate(activatedRoute: ActivatedRoute, resolver: ComponentFactoryResolver, injector: Injector, providers: ResolvedReflectiveProvider[], outletMap: RouterOutletMap): void;
     deactivate(): void;
     ngOnDestroy(): void;
 }

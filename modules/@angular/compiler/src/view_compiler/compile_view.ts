@@ -7,7 +7,7 @@
  */
 
 import {AnimationEntryCompileResult} from '../animation/animation_compiler';
-import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompilePipeMetadata} from '../compile_metadata';
+import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompilePipeSummary} from '../compile_metadata';
 import {EventHandlerVars, NameResolver} from '../compiler_util/expression_converter';
 import {createPureProxy} from '../compiler_util/identifier_util';
 import {CompilerConfig} from '../config';
@@ -82,7 +82,7 @@ export class CompileView implements NameResolver {
 
   constructor(
       public component: CompileDirectiveMetadata, public genConfig: CompilerConfig,
-      public pipeMetas: CompilePipeMetadata[], public styles: o.Expression,
+      public pipeMetas: CompilePipeSummary[], public styles: o.Expression,
       public animations: AnimationEntryCompileResult[], public viewIndex: number,
       public declarationElement: CompileElement, public templateVariableBindings: string[][]) {
     this.createMethod = new CompileMethod(this);
@@ -111,13 +111,13 @@ export class CompileView implements NameResolver {
     this.componentContext =
         getPropertyInView(o.THIS_EXPR.prop('context'), this, this.componentView);
 
-    var viewQueries = new Map<any, CompileQuery[]>();
+    const viewQueries = new Map<any, CompileQuery[]>();
     if (this.viewType === ViewType.COMPONENT) {
-      var directiveInstance = o.THIS_EXPR.prop('context');
+      const directiveInstance = o.THIS_EXPR.prop('context');
       this.component.viewQueries.forEach((queryMeta, queryIndex) => {
-        var propName = `_viewQuery_${queryMeta.selectors[0].name}_${queryIndex}`;
-        var queryList = createQueryList(queryMeta, directiveInstance, propName, this);
-        var query = new CompileQuery(queryMeta, queryList, directiveInstance, this);
+        const propName = `_viewQuery_${queryMeta.selectors[0].name}_${queryIndex}`;
+        const queryList = createQueryList(queryMeta, directiveInstance, propName, this);
+        const query = new CompileQuery(queryMeta, queryList, directiveInstance, this);
         addQueryToTokenMap(viewQueries, query);
       });
     }
@@ -138,8 +138,8 @@ export class CompileView implements NameResolver {
     if (name == EventHandlerVars.event.name) {
       return EventHandlerVars.event;
     }
-    var currView: CompileView = this;
-    var result = currView.locals.get(name);
+    let currView: CompileView = this;
+    let result = currView.locals.get(name);
     while (!result && isPresent(currView.declarationElement.view)) {
       currView = currView.declarationElement.view;
       result = currView.locals.get(name);

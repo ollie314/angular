@@ -28,11 +28,12 @@ export function main() {
   }
 
   function parseTemplateBindingsResult(
-      text: string, location: any = null): TemplateBindingParseResult {
-    return createParser().parseTemplateBindings(text, location);
+      text: string, location: any = null, prefix?: string): TemplateBindingParseResult {
+    return createParser().parseTemplateBindings(prefix, text, location);
   }
-  function parseTemplateBindings(text: string, location: any = null): TemplateBinding[] {
-    return parseTemplateBindingsResult(text, location).templateBindings;
+  function parseTemplateBindings(
+      text: string, location: any = null, prefix?: string): TemplateBinding[] {
+    return parseTemplateBindingsResult(text, location, prefix).templateBindings;
   }
 
   function parseInterpolation(text: string, location: any = null): ASTWithSource {
@@ -48,28 +49,28 @@ export function main() {
   }
 
   function checkInterpolation(exp: string, expected?: string) {
-    var ast = parseInterpolation(exp);
+    const ast = parseInterpolation(exp);
     if (isBlank(expected)) expected = exp;
     expect(unparse(ast)).toEqual(expected);
     validate(ast);
   }
 
   function checkBinding(exp: string, expected?: string) {
-    var ast = parseBinding(exp);
+    const ast = parseBinding(exp);
     if (isBlank(expected)) expected = exp;
     expect(unparse(ast)).toEqual(expected);
     validate(ast);
   }
 
   function checkAction(exp: string, expected?: string) {
-    var ast = parseAction(exp);
+    const ast = parseAction(exp);
     if (isBlank(expected)) expected = exp;
     expect(unparse(ast)).toEqual(expected);
     validate(ast);
   }
 
   function expectError(ast: {errors: ParserError[]}, message: string) {
-    for (var error of ast.errors) {
+    for (const error of ast.errors) {
       if (error.message.indexOf(message) >= 0) {
         return;
       }
@@ -327,6 +328,11 @@ export function main() {
         });
       }
 
+      function keySpans(source: string, templateBindings: TemplateBinding[]) {
+        return templateBindings.map(
+            binding => source.substring(binding.span.start, binding.span.end));
+      }
+
       function exprSources(templateBindings: any[]) {
         return templateBindings.map(
             binding => isPresent(binding.expression) ? binding.expression.source : null);
@@ -338,7 +344,7 @@ export function main() {
          () => { expect(keys(parseTemplateBindings('a'))).toEqual(['a']); });
 
       it('should only allow identifier, string, or keyword including dashes as keys', () => {
-        var bindings = parseTemplateBindings('a:\'b\'');
+        let bindings = parseTemplateBindings('a:\'b\'');
         expect(keys(bindings)).toEqual(['a']);
 
         bindings = parseTemplateBindings('\'a\':\'b\'');
@@ -357,7 +363,7 @@ export function main() {
       });
 
       it('should detect expressions as value', () => {
-        var bindings = parseTemplateBindings('a:b');
+        let bindings = parseTemplateBindings('a:b');
         expect(exprSources(bindings)).toEqual(['b']);
 
         bindings = parseTemplateBindings('a:1+1');
@@ -365,12 +371,12 @@ export function main() {
       });
 
       it('should detect names as value', () => {
-        var bindings = parseTemplateBindings('a:let b');
+        const bindings = parseTemplateBindings('a:let b');
         expect(keyValues(bindings)).toEqual(['a', 'let b=\$implicit']);
       });
 
       it('should allow space and colon as separators', () => {
-        var bindings = parseTemplateBindings('a:b');
+        let bindings = parseTemplateBindings('a:b');
         expect(keys(bindings)).toEqual(['a']);
         expect(exprSources(bindings)).toEqual(['b']);
 
@@ -380,24 +386,24 @@ export function main() {
       });
 
       it('should allow multiple pairs', () => {
-        var bindings = parseTemplateBindings('a 1 b 2');
+        const bindings = parseTemplateBindings('a 1 b 2');
         expect(keys(bindings)).toEqual(['a', 'aB']);
         expect(exprSources(bindings)).toEqual(['1 ', '2']);
       });
 
       it('should store the sources in the result', () => {
-        var bindings = parseTemplateBindings('a 1,b 2');
+        const bindings = parseTemplateBindings('a 1,b 2');
         expect(bindings[0].expression.source).toEqual('1');
         expect(bindings[1].expression.source).toEqual('2');
       });
 
       it('should store the passed-in location', () => {
-        var bindings = parseTemplateBindings('a 1,b 2', 'location');
+        const bindings = parseTemplateBindings('a 1,b 2', 'location');
         expect(bindings[0].expression.location).toEqual('location');
       });
 
       it('should support let notation', () => {
-        var bindings = parseTemplateBindings('let i');
+        let bindings = parseTemplateBindings('let i');
         expect(keyValues(bindings)).toEqual(['let i=\$implicit']);
 
         bindings = parseTemplateBindings('let i');
@@ -425,9 +431,33 @@ export function main() {
       });
 
       it('should parse pipes', () => {
-        var bindings = parseTemplateBindings('key value|pipe');
-        var ast = bindings[0].expression.ast;
+        const bindings = parseTemplateBindings('key value|pipe');
+        const ast = bindings[0].expression.ast;
         expect(ast).toBeAnInstanceOf(BindingPipe);
+      });
+
+      describe('spans', () => {
+        it('should should support let', () => {
+          const source = 'let i';
+          expect(keySpans(source, parseTemplateBindings(source))).toEqual(['let i']);
+        });
+
+        it('should support multiple lets', () => {
+          const source = 'let item; let i=index; let e=even;';
+          expect(keySpans(source, parseTemplateBindings(source))).toEqual([
+            'let item', 'let i=index', 'let e=even'
+          ]);
+        });
+
+        it('should support a prefix', () => {
+          const source = 'let person of people';
+          const prefix = 'ngFor';
+          const bindings = parseTemplateBindings(source, null, prefix);
+          expect(keyValues(bindings)).toEqual([
+            'ngFor', 'let person=$implicit', 'ngForOf=people in null'
+          ]);
+          expect(keySpans(source, bindings)).toEqual(['', 'let person ', 'of people']);
+        });
       });
     });
 
@@ -436,15 +466,15 @@ export function main() {
          () => { expect(parseInterpolation('nothing')).toBe(null); });
 
       it('should parse no prefix/suffix interpolation', () => {
-        var ast = parseInterpolation('{{a}}').ast as Interpolation;
+        const ast = parseInterpolation('{{a}}').ast as Interpolation;
         expect(ast.strings).toEqual(['', '']);
         expect(ast.expressions.length).toEqual(1);
         expect(ast.expressions[0].name).toEqual('a');
       });
 
       it('should parse prefix/suffix with multiple interpolation', () => {
-        var originalExp = 'before {{ a }} middle {{ b }} after';
-        var ast = parseInterpolation(originalExp).ast;
+        const originalExp = 'before {{ a }} middle {{ b }} after';
+        const ast = parseInterpolation(originalExp).ast;
         expect(unparse(ast)).toEqual(originalExp);
         validate(ast);
       });
@@ -502,7 +532,7 @@ export function main() {
 
     describe('parseSimpleBinding', () => {
       it('should parse a field access', () => {
-        var p = parseSimpleBinding('name');
+        const p = parseSimpleBinding('name');
         expect(unparse(p)).toEqual('name');
         validate(p);
       });
@@ -533,7 +563,7 @@ export function main() {
 
     describe('error recovery', () => {
       function recover(text: string, expected?: string) {
-        let expr = validate(parseAction(text));
+        const expr = validate(parseAction(text));
         expect(unparse(expr)).toEqual(expected || text);
       }
       it('should be able to recover from an extra paren', () => recover('((a)))', 'a'));

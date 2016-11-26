@@ -23,7 +23,7 @@ export function main() {
           NgModelRadioForm, NgModelRangeForm, NgModelSelectForm, NgNoFormComp, InvalidNgModelNoName,
           NgModelOptionsStandalone, NgModelCustomComp, NgModelCustomWrapper,
           NgModelValidationBindings, NgModelMultipleValidators, NgAsyncValidator,
-          NgModelAsyncValidation
+          NgModelAsyncValidation, NgModelSelectWithNullForm
         ],
         imports: [FormsModule]
       });
@@ -510,11 +510,11 @@ export function main() {
            fixture.componentInstance.val = 4;
            fixture.detectChanges();
            tick();
-           let input = fixture.debugElement.query(By.css('input'));
+           const input = fixture.debugElement.query(By.css('input'));
            expect(input.nativeElement.value).toBe('4');
            fixture.detectChanges();
            tick();
-           let newVal = '4';
+           const newVal = '4';
            input.triggerEventHandler('input', {target: {value: newVal}});
            tick();
            // view -> model
@@ -699,6 +699,28 @@ export function main() {
            expect(select.nativeElement.value).toEqual('2: Object');
            expect(secondNYC.nativeElement.selected).toBe(true);
          }));
+
+      it('should work with null option', fakeAsync(() => {
+           const fixture = TestBed.createComponent(NgModelSelectWithNullForm);
+           const comp = fixture.componentInstance;
+           comp.cities = [{'name': 'SF'}, {'name': 'NYC'}];
+           comp.selectedCity = null;
+           fixture.detectChanges();
+
+           const select = fixture.debugElement.query(By.css('select'));
+
+           select.nativeElement.value = '2: Object';
+           dispatchEvent(select.nativeElement, 'change');
+           fixture.detectChanges();
+           tick();
+           expect(comp.selectedCity['name']).toEqual('NYC');
+
+           select.nativeElement.value = '0: null';
+           dispatchEvent(select.nativeElement, 'change');
+           fixture.detectChanges();
+           tick();
+           expect(comp.selectedCity).toEqual(null);
+         }));
     });
 
     describe('custom value accessors', () => {
@@ -771,10 +793,32 @@ export function main() {
            expect(form.valid).toEqual(true);
          }));
 
-      it('should support optional fields with pattern validator', fakeAsync(() => {
+      it('should support optional fields with string pattern validator', fakeAsync(() => {
            const fixture = TestBed.createComponent(NgModelMultipleValidators);
            fixture.componentInstance.required = false;
            fixture.componentInstance.pattern = '[a-z]+';
+           fixture.detectChanges();
+           tick();
+
+           const form = fixture.debugElement.children[0].injector.get(NgForm);
+           const input = fixture.debugElement.query(By.css('input'));
+
+           input.nativeElement.value = '';
+           dispatchEvent(input.nativeElement, 'input');
+           fixture.detectChanges();
+           expect(form.valid).toBeTruthy();
+
+           input.nativeElement.value = '1';
+           dispatchEvent(input.nativeElement, 'input');
+           fixture.detectChanges();
+           expect(form.valid).toBeFalsy();
+           expect(form.control.hasError('pattern', ['tovalidate'])).toBeTruthy();
+         }));
+
+      it('should support optional fields with RegExp pattern validator', fakeAsync(() => {
+           const fixture = TestBed.createComponent(NgModelMultipleValidators);
+           fixture.componentInstance.required = false;
+           fixture.componentInstance.pattern = /^[a-z]+$/;
            fixture.detectChanges();
            tick();
 
@@ -1079,6 +1123,20 @@ class NgModelSelectForm {
 }
 
 @Component({
+  selector: 'ng-model-select-null-form',
+  template: `
+    <select [(ngModel)]="selectedCity">
+      <option *ngFor="let c of cities" [ngValue]="c"> {{c.name}} </option>
+      <option [ngValue]="null">Unspecified</option>
+    </select>
+  `
+})
+class NgModelSelectWithNullForm {
+  selectedCity: {[k: string]: string} = {};
+  cities: any[] = [];
+}
+
+@Component({
   selector: 'ng-model-custom-comp',
   template: `
     <input name="custom" [(ngModel)]="model" (ngModelChange)="changeFn($event)" [disabled]="isDisabled">
@@ -1141,7 +1199,7 @@ class NgModelValidationBindings {
 class NgModelMultipleValidators {
   required: boolean;
   minLen: number;
-  pattern: string;
+  pattern: string|RegExp;
 }
 
 @Directive({

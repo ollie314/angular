@@ -8,7 +8,7 @@
 
 import {Injectable} from '@angular/core';
 
-import {CompileDirectiveMetadata, CompileIdentifierMetadata} from './compile_metadata';
+import {CompileDirectiveMetadata, CompileDirectiveSummary, CompileIdentifierMetadata} from './compile_metadata';
 import {createCheckBindingField, createCheckBindingStmt} from './compiler_util/binding_util';
 import {EventHandlerVars, convertActionBinding, convertPropertyBinding} from './compiler_util/expression_converter';
 import {triggerAnimation, writeToRenderer} from './compiler_util/render_util';
@@ -207,7 +207,7 @@ function addNgDoCheckMethod(builder: DirectiveWrapperBuilder) {
 
 function addCheckInputMethod(input: string, builder: DirectiveWrapperBuilder) {
   const field = createCheckBindingField(builder);
-  var onChangeStatements: o.Statement[] = [
+  const onChangeStatements: o.Statement[] = [
     o.THIS_EXPR.prop(CHANGED_FIELD_NAME).set(o.literal(true)).toStmt(),
     o.THIS_EXPR.prop(CONTEXT_FIELD_NAME).prop(input).set(CURR_VALUE_VAR).toStmt(),
   ];
@@ -219,7 +219,7 @@ function addCheckInputMethod(input: string, builder: DirectiveWrapperBuilder) {
                                 .toStmt());
   }
 
-  var methodBody: o.Statement[] = createCheckBindingStmt(
+  const methodBody: o.Statement[] = createCheckBindingStmt(
       {currValExpr: CURR_VALUE_VAR, forceUpdate: FORCE_UPDATE_VAR, stmts: []}, field.expression,
       THROW_ON_CHANGE_VAR, onChangeStatements);
   builder.methods.push(new o.ClassMethod(
@@ -355,8 +355,8 @@ function parseHostBindings(
   const sourceSpan = new ParseSourceSpan(
       new ParseLocation(sourceFile, null, null, null),
       new ParseLocation(sourceFile, null, null, null));
-  const parsedHostProps = parser.createDirectiveHostPropertyAsts(dirMeta, sourceSpan);
-  const parsedHostListeners = parser.createDirectiveHostEventAsts(dirMeta, sourceSpan);
+  const parsedHostProps = parser.createDirectiveHostPropertyAsts(dirMeta.toSummary(), sourceSpan);
+  const parsedHostListeners = parser.createDirectiveHostEventAsts(dirMeta.toSummary(), sourceSpan);
 
   return new ParseResult(parsedHostProps, parsedHostListeners, errors);
 }
@@ -418,7 +418,7 @@ export class DirectiveWrapperExpressions {
       return [];
     }
   }
-  static ngOnDestroy(dir: CompileDirectiveMetadata, dirWrapper: o.Expression): o.Statement[] {
+  static ngOnDestroy(dir: CompileDirectiveSummary, dirWrapper: o.Expression): o.Statement[] {
     if (dir.type.lifecycleHooks.indexOf(LifecycleHooks.OnDestroy) !== -1 ||
         Object.keys(dir.outputs).length > 0) {
       return [dirWrapper.callMethod('ngOnDestroy', []).toStmt()];
@@ -427,10 +427,10 @@ export class DirectiveWrapperExpressions {
     }
   }
   static subscribe(
-      dirMeta: CompileDirectiveMetadata, hostProps: BoundElementPropertyAst[], usedEvents: string[],
+      dirMeta: CompileDirectiveSummary, hostProps: BoundElementPropertyAst[], usedEvents: string[],
       dirWrapper: o.Expression, view: o.Expression, eventListener: o.Expression): o.Statement[] {
     let needsSubscribe = false;
-    let eventFlags: o.Expression[] = [];
+    const eventFlags: o.Expression[] = [];
     Object.keys(dirMeta.outputs).forEach((propName) => {
       const eventName = dirMeta.outputs[propName];
       const eventUsed = usedEvents.indexOf(eventName) > -1;

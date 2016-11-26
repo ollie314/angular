@@ -26,13 +26,18 @@ function _isPipeMetadata(type: any): boolean {
 export class PipeResolver {
   constructor(private _reflector: ReflectorReader = reflector) {}
 
+  isPipe(type: Type<any>) {
+    const typeMetadata = this._reflector.annotations(resolveForwardRef(type));
+    return typeMetadata && typeMetadata.some(_isPipeMetadata);
+  }
+
   /**
    * Return {@link Pipe} for a given `Type`.
    */
   resolve(type: Type<any>, throwIfNotFound = true): Pipe {
-    var metas = this._reflector.annotations(resolveForwardRef(type));
+    const metas = this._reflector.annotations(resolveForwardRef(type));
     if (isPresent(metas)) {
-      var annotation = metas.find(_isPipeMetadata);
+      const annotation = metas.find(_isPipeMetadata);
       if (isPresent(annotation)) {
         return annotation;
       }

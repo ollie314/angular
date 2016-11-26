@@ -8,7 +8,7 @@
 
 import {Inject, Injectable, OpaqueToken, Optional, SchemaMetadata, SecurityContext} from '@angular/core';
 
-import {CompileDirectiveMetadata, CompilePipeMetadata, CompileTemplateMetadata, CompileTokenMetadata, removeIdentifierDuplicates} from '../compile_metadata';
+import {CompileDirectiveMetadata, CompileDirectiveSummary, CompilePipeSummary, CompileTemplateMetadata, CompileTemplateSummary, CompileTokenMetadata, CompileTypeMetadata, removeIdentifierDuplicates} from '../compile_metadata';
 import {AST, ASTWithSource, BindingPipe, EmptyExpr, Interpolation, ParserError, RecursiveAstVisitor, TemplateBinding} from '../expression_parser/ast';
 import {Parser} from '../expression_parser/parser';
 import {isPresent} from '../facade/lang';
@@ -90,8 +90,8 @@ export class TemplateParser {
       @Optional() @Inject(TEMPLATE_TRANSFORMS) public transforms: TemplateAstVisitor[]) {}
 
   parse(
-      component: CompileDirectiveMetadata, template: string, directives: CompileDirectiveMetadata[],
-      pipes: CompilePipeMetadata[], schemas: SchemaMetadata[], templateUrl: string): TemplateAst[] {
+      component: CompileDirectiveMetadata, template: string, directives: CompileDirectiveSummary[],
+      pipes: CompilePipeSummary[], schemas: SchemaMetadata[], templateUrl: string): TemplateAst[] {
     const result = this.tryParse(component, template, directives, pipes, schemas, templateUrl);
     const warnings = result.errors.filter(error => error.level === ParseErrorLevel.WARNING);
     const errors = result.errors.filter(error => error.level === ParseErrorLevel.FATAL);
@@ -109,8 +109,8 @@ export class TemplateParser {
   }
 
   tryParse(
-      component: CompileDirectiveMetadata, template: string, directives: CompileDirectiveMetadata[],
-      pipes: CompilePipeMetadata[], schemas: SchemaMetadata[],
+      component: CompileDirectiveMetadata, template: string, directives: CompileDirectiveSummary[],
+      pipes: CompilePipeSummary[], schemas: SchemaMetadata[],
       templateUrl: string): TemplateParseResult {
     return this.tryParseHtml(
         this.expandHtml(this._htmlParser.parse(
@@ -120,13 +120,13 @@ export class TemplateParser {
 
   tryParseHtml(
       htmlAstWithErrors: ParseTreeResult, component: CompileDirectiveMetadata, template: string,
-      directives: CompileDirectiveMetadata[], pipes: CompilePipeMetadata[],
-      schemas: SchemaMetadata[], templateUrl: string): TemplateParseResult {
-    var result: TemplateAst[];
-    var errors = htmlAstWithErrors.errors;
+      directives: CompileDirectiveSummary[], pipes: CompilePipeSummary[], schemas: SchemaMetadata[],
+      templateUrl: string): TemplateParseResult {
+    let result: TemplateAst[];
+    const errors = htmlAstWithErrors.errors;
     if (htmlAstWithErrors.rootNodes.length > 0) {
-      const uniqDirectives = removeIdentifierDuplicates(directives);
-      const uniqPipes = removeIdentifierDuplicates(pipes);
+      const uniqDirectives = removeSummaryDuplicates(directives);
+      const uniqPipes = removeSummaryDuplicates(pipes);
       const providerViewContext =
           new ProviderViewContext(component, htmlAstWithErrors.rootNodes[0].sourceSpan);
       let interpolationConfig: InterpolationConfig;
@@ -200,14 +200,14 @@ export class TemplateParser {
 
 class TemplateParseVisitor implements html.Visitor {
   selectorMatcher = new SelectorMatcher();
-  directivesIndex = new Map<CompileDirectiveMetadata, number>();
+  directivesIndex = new Map<CompileDirectiveSummary, number>();
   ngContentCount: number = 0;
 
   constructor(
-      public providerViewContext: ProviderViewContext, directives: CompileDirectiveMetadata[],
+      public providerViewContext: ProviderViewContext, directives: CompileDirectiveSummary[],
       private _bindingParser: BindingParser, private _schemaRegistry: ElementSchemaRegistry,
       private _schemas: SchemaMetadata[], private _targetErrors: TemplateParseError[]) {
-    directives.forEach((directive: CompileDirectiveMetadata, index: number) => {
+    directives.forEach((directive, index) => {
       const selector = CssSelector.parse(directive.selector);
       this.selectorMatcher.addSelectables(selector, directive);
       this.directivesIndex.set(directive, index);
@@ -271,12 +271,13 @@ class TemplateParseVisitor implements html.Visitor {
           isTemplateElement, attr, matchableAttrs, elementOrDirectiveProps, events,
           elementOrDirectiveRefs, elementVars);
 
-      let templateBindingsSource: string;
+      let templateBindingsSource: string|undefined = undefined;
+      let prefixToken: string|undefined = undefined;
       if (this._normalizeAttributeName(attr.name) == TEMPLATE_ATTR) {
         templateBindingsSource = attr.value;
       } else if (attr.name.startsWith(TEMPLATE_ATTR_PREFIX)) {
-        const key = attr.name.substring(TEMPLATE_ATTR_PREFIX.length);  // remove the star
-        templateBindingsSource = (attr.value.length == 0) ? key : key + ' ' + attr.value;
+        templateBindingsSource = attr.value;
+        prefixToken = attr.name.substring(TEMPLATE_ATTR_PREFIX.length);  // remove the star
       }
       const hasTemplateBinding = isPresent(templateBindingsSource);
       if (hasTemplateBinding) {
@@ -287,7 +288,7 @@ class TemplateParseVisitor implements html.Visitor {
         }
         hasInlineTemplates = true;
         this._bindingParser.parseInlineTemplateBinding(
-            attr.name, templateBindingsSource, attr.sourceSpan, templateMatchableAttrs,
+            attr.name, prefixToken, templateBindingsSource, attr.sourceSpan, templateMatchableAttrs,
             templateElementOrDirectiveProps, templateElementVars);
       }
 
@@ -359,7 +360,8 @@ class TemplateParseVisitor implements html.Visitor {
                   componentDirectiveAst.directive.template));
 
       const componentTemplate = providerContext.viewContext.component.template;
-      this._validateElementAnimationInputOutputs(elementProps, events, componentTemplate);
+      this._validateElementAnimationInputOutputs(
+          elementProps, events, componentTemplate.toSummary());
     }
 
     if (hasInlineTemplates) {
@@ -391,9 +393,9 @@ class TemplateParseVisitor implements html.Visitor {
 
   private _validateElementAnimationInputOutputs(
       inputs: BoundElementPropertyAst[], outputs: BoundEventAst[],
-      template: CompileTemplateMetadata) {
+      template: CompileTemplateSummary) {
     const triggerLookup = new Set<string>();
-    template.animations.forEach(entry => { triggerLookup.add(entry.name); });
+    template.animations.forEach(entry => { triggerLookup.add(entry); });
 
     const animationInputs = inputs.filter(input => input.isAnimation);
     animationInputs.forEach(input => {
@@ -517,7 +519,7 @@ class TemplateParseVisitor implements html.Visitor {
   }
 
   private _parseDirectives(selectorMatcher: SelectorMatcher, elementCssSelector: CssSelector):
-      {directives: CompileDirectiveMetadata[], matchElement: boolean} {
+      {directives: CompileDirectiveSummary[], matchElement: boolean} {
     // Need to sort the directives so that we get consistent results throughout,
     // as selectorMatcher uses Maps inside.
     // Also deduplicate directives as they might match more than one time!
@@ -537,12 +539,12 @@ class TemplateParseVisitor implements html.Visitor {
   }
 
   private _createDirectiveAsts(
-      isTemplateElement: boolean, elementName: string, directives: CompileDirectiveMetadata[],
+      isTemplateElement: boolean, elementName: string, directives: CompileDirectiveSummary[],
       props: BoundProperty[], elementOrDirectiveRefs: ElementOrDirectiveRef[],
       elementSourceSpan: ParseSourceSpan, targetReferences: ReferenceAst[]): DirectiveAst[] {
     const matchedReferences = new Set<string>();
-    let component: CompileDirectiveMetadata = null;
-    const directiveAsts = directives.map((directive: CompileDirectiveMetadata) => {
+    let component: CompileDirectiveSummary = null;
+    const directiveAsts = directives.map((directive) => {
       const sourceSpan = new ParseSourceSpan(
           elementSourceSpan.start, elementSourceSpan.end, `Directive ${directive.type.name}`);
       if (directive.isComponent) {
@@ -817,9 +819,9 @@ function createElementCssSelector(elementName: string, matchableAttrs: string[][
   cssSelector.setElement(elNameNoNs);
 
   for (let i = 0; i < matchableAttrs.length; i++) {
-    let attrName = matchableAttrs[i][0];
-    let attrNameNoNs = splitNsName(attrName)[1];
-    let attrValue = matchableAttrs[i][1];
+    const attrName = matchableAttrs[i][0];
+    const attrNameNoNs = splitNsName(attrName)[1];
+    const attrValue = matchableAttrs[i][1];
 
     cssSelector.addAttribute(attrNameNoNs, attrValue);
     if (attrName.toLowerCase() == CLASS_ATTR) {
@@ -835,4 +837,16 @@ const NON_BINDABLE_VISITOR = new NonBindableVisitor();
 
 function _isEmptyTextNode(node: html.Node): boolean {
   return node instanceof html.Text && node.value.trim().length == 0;
+}
+
+export function removeSummaryDuplicates<T extends{type: CompileTypeMetadata}>(items: T[]): T[] {
+  const map = new Map<any, T>();
+
+  items.forEach((item) => {
+    if (!map.get(item.type.reference)) {
+      map.set(item.type.reference, item);
+    }
+  });
+
+  return Array.from(map.values());
 }

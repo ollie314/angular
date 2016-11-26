@@ -1,6 +1,6 @@
 /** @experimental */
 export declare abstract class AnimationDriver {
-    abstract animate(element: any, startingStyles: AnimationStyles, keyframes: AnimationKeyframe[], duration: number, delay: number, easing: string): AnimationPlayer;
+    abstract animate(element: any, startingStyles: AnimationStyles, keyframes: AnimationKeyframe[], duration: number, delay: number, easing: string, previousPlayers?: AnimationPlayer[]): AnimationPlayer;
     static NOOP: AnimationDriver;
 }
 
@@ -58,8 +58,10 @@ export declare class HammerGestureConfig {
     buildHammer(element: HTMLElement): HammerInstance;
 }
 
-/** @experimental */
+/** @deprecated */
 export declare class NgProbeToken {
+    name: string;
+    token: any;
     constructor(name: string, token: any);
 }
 

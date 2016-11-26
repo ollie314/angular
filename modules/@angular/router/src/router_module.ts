@@ -7,12 +7,12 @@
  */
 
 import {APP_BASE_HREF, HashLocationStrategy, Location, LocationStrategy, PathLocationStrategy, PlatformLocation} from '@angular/common';
-import {ANALYZE_FOR_ENTRY_COMPONENTS, APP_BOOTSTRAP_LISTENER, ApplicationRef, Compiler, Inject, Injector, ModuleWithProviders, NgModule, NgModuleFactoryLoader, OpaqueToken, Optional, Provider, SkipSelf, SystemJsNgModuleLoader} from '@angular/core';
-
+import {ANALYZE_FOR_ENTRY_COMPONENTS, APP_BOOTSTRAP_LISTENER, ApplicationRef, Compiler, ComponentRef, Inject, Injector, ModuleWithProviders, NgModule, NgModuleFactoryLoader, NgProbeToken, OpaqueToken, Optional, Provider, SkipSelf, SystemJsNgModuleLoader} from '@angular/core';
 import {Route, Routes} from './config';
 import {RouterLink, RouterLinkWithHref} from './directives/router_link';
 import {RouterLinkActive} from './directives/router_link_active';
 import {RouterOutlet} from './directives/router_outlet';
+import {getDOM} from './private_import_platform-browser';
 import {ErrorHandler, Router} from './router';
 import {ROUTES} from './router_config_loader';
 import {RouterOutletMap} from './router_outlet_map';
@@ -21,7 +21,6 @@ import {ActivatedRoute} from './router_state';
 import {UrlHandlingStrategy} from './url_handling_strategy';
 import {DefaultUrlSerializer, UrlSerializer} from './url_tree';
 import {flatten} from './utils/collection';
-
 
 
 /**
@@ -41,17 +40,10 @@ export const ROUTER_CONFIGURATION = new OpaqueToken('ROUTER_CONFIGURATION');
  */
 export const ROUTER_FORROOT_GUARD = new OpaqueToken('ROUTER_FORROOT_GUARD');
 
-const pathLocationStrategy = {
-  provide: LocationStrategy,
-  useClass: PathLocationStrategy
-};
-const hashLocationStrategy = {
-  provide: LocationStrategy,
-  useClass: HashLocationStrategy
-};
-
 export const ROUTER_PROVIDERS: Provider[] = [
-  Location, {provide: UrlSerializer, useClass: DefaultUrlSerializer}, {
+  Location,
+  {provide: UrlSerializer, useClass: DefaultUrlSerializer},
+  {
     provide: Router,
     useFactory: setupRouter,
     deps: [
@@ -59,10 +51,18 @@ export const ROUTER_PROVIDERS: Provider[] = [
       Compiler, ROUTES, ROUTER_CONFIGURATION, [UrlHandlingStrategy, new Optional()]
     ]
   },
-  RouterOutletMap, {provide: ActivatedRoute, useFactory: rootRoute, deps: [Router]},
-  {provide: NgModuleFactoryLoader, useClass: SystemJsNgModuleLoader}, RouterPreloader, NoPreloading,
-  PreloadAllModules, {provide: ROUTER_CONFIGURATION, useValue: {enableTracing: false}}
+  RouterOutletMap,
+  {provide: ActivatedRoute, useFactory: rootRoute, deps: [Router]},
+  {provide: NgModuleFactoryLoader, useClass: SystemJsNgModuleLoader},
+  RouterPreloader,
+  NoPreloading,
+  PreloadAllModules,
+  {provide: ROUTER_CONFIGURATION, useValue: {enableTracing: false}},
 ];
+
+export function routerNgProbeToken() {
+  return new NgProbeToken('Router', Router);
+}
 
 /**
  * @whatItDoes Adds router directives and providers.
@@ -77,10 +77,9 @@ export const ROUTER_PROVIDERS: Provider[] = [
  * `RouterModule.forChild`.
  *
  * * `forRoot` creates a module that contains all the directives, the given routes, and the router
- * service itself.
+ *   service itself.
  * * `forChild` creates a module that contains all the directives and the given routes, but does not
- * include
- * the router service.
+ *   include the router service.
  *
  * When registered at the root, the module should be used as follows
  *
@@ -135,12 +134,15 @@ export class RouterModule {
     return {
       ngModule: RouterModule,
       providers: [
-        ROUTER_PROVIDERS, provideRoutes(routes), {
+        ROUTER_PROVIDERS,
+        provideRoutes(routes),
+        {
           provide: ROUTER_FORROOT_GUARD,
           useFactory: provideForRootGuard,
           deps: [[Router, new Optional(), new SkipSelf()]]
         },
-        {provide: ROUTER_CONFIGURATION, useValue: config ? config : {}}, {
+        {provide: ROUTER_CONFIGURATION, useValue: config ? config : {}},
+        {
           provide: LocationStrategy,
           useFactory: provideLocationStrategy,
           deps: [
@@ -152,8 +154,9 @@ export class RouterModule {
           useExisting: config && config.preloadingStrategy ? config.preloadingStrategy :
                                                              NoPreloading
         },
-        provideRouterInitializer()
-      ]
+        {provide: NgProbeToken, multi: true, useFactory: routerNgProbeToken},
+        provideRouterInitializer(),
+      ],
     };
   }
 
@@ -197,7 +200,7 @@ export function provideForRootGuard(router: Router): any {
 export function provideRoutes(routes: Routes): any {
   return [
     {provide: ANALYZE_FOR_ENTRY_COMPONENTS, multi: true, useValue: routes},
-    {provide: ROUTES, multi: true, useValue: routes}
+    {provide: ROUTES, multi: true, useValue: routes},
   ];
 }
 
@@ -250,11 +253,12 @@ export function setupRouter(
   }
 
   if (opts.enableTracing) {
+    const dom = getDOM();
     router.events.subscribe(e => {
-      console.group(`Router Event: ${(<any>e.constructor).name}`);
-      console.log(e.toString());
-      console.log(e);
-      console.groupEnd();
+      dom.logGroup(`Router Event: ${(<any>e.constructor).name}`);
+      dom.log(e.toString());
+      dom.log(e);
+      dom.logGroupEnd();
     });
   }
 
@@ -267,7 +271,12 @@ export function rootRoute(router: Router): ActivatedRoute {
 
 export function initialRouterNavigation(
     router: Router, ref: ApplicationRef, preloader: RouterPreloader, opts: ExtraOptions) {
-  return () => {
+  return (bootstrappedComponentRef: ComponentRef<any>) => {
+
+    if (bootstrappedComponentRef !== ref.components[0]) {
+      return;
+    }
+
     router.resetRootComponentType(ref.componentTypes[0]);
     preloader.setUpPreloading();
     if (opts.initialNavigation === false) {
@@ -292,6 +301,6 @@ export function provideRouterInitializer() {
       useFactory: initialRouterNavigation,
       deps: [Router, ApplicationRef, RouterPreloader, ROUTER_CONFIGURATION]
     },
-    {provide: APP_BOOTSTRAP_LISTENER, multi: true, useExisting: ROUTER_INITIALIZER}
+    {provide: APP_BOOTSTRAP_LISTENER, multi: true, useExisting: ROUTER_INITIALIZER},
   ];
 }

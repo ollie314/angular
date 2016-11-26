@@ -15,20 +15,33 @@ export function createEmptyUrlTree() {
 
 export function containsTree(container: UrlTree, containee: UrlTree, exact: boolean): boolean {
   if (exact) {
-    return equalSegmentGroups(container.root, containee.root);
+    return equalQueryParams(container.queryParams, containee.queryParams) &&
+        equalSegmentGroups(container.root, containee.root);
   } else {
-    return containsSegmentGroup(container.root, containee.root);
+    return containsQueryParams(container.queryParams, containee.queryParams) &&
+        containsSegmentGroup(container.root, containee.root);
   }
+}
+
+function equalQueryParams(
+    container: {[k: string]: string}, containee: {[k: string]: string}): boolean {
+  return shallowEqual(container, containee);
 }
 
 function equalSegmentGroups(container: UrlSegmentGroup, containee: UrlSegmentGroup): boolean {
   if (!equalPath(container.segments, containee.segments)) return false;
   if (container.numberOfChildren !== containee.numberOfChildren) return false;
-  for (let c in containee.children) {
+  for (const c in containee.children) {
     if (!container.children[c]) return false;
     if (!equalSegmentGroups(container.children[c], containee.children[c])) return false;
   }
   return true;
+}
+
+function containsQueryParams(
+    container: {[k: string]: string}, containee: {[k: string]: string}): boolean {
+  return Object.keys(containee) <= Object.keys(container) &&
+      Object.keys(containee).every(key => containee[key] === container[key]);
 }
 
 function containsSegmentGroup(container: UrlSegmentGroup, containee: UrlSegmentGroup): boolean {
@@ -45,7 +58,7 @@ function containsSegmentGroupHelper(
 
   } else if (container.segments.length === containeePaths.length) {
     if (!equalPath(container.segments, containeePaths)) return false;
-    for (let c in containee.children) {
+    for (const c in containee.children) {
       if (!container.children[c]) return false;
       if (!containsSegmentGroup(container.children[c], containee.children[c])) return false;
     }
@@ -367,7 +380,7 @@ class Pair<A, B> {
 }
 function pairs<T>(obj: {[key: string]: T}): Pair<string, T>[] {
   const res: Pair<string, T>[] = [];
-  for (let prop in obj) {
+  for (const prop in obj) {
     if (obj.hasOwnProperty(prop)) {
       res.push(new Pair<string, T>(prop, obj[prop]));
     }
@@ -430,7 +443,7 @@ class UrlParser {
       this.capture('/');
     }
 
-    let paths: any[] = [];
+    const paths: any[] = [];
     if (!this.peekStartsWith('(')) {
       paths.push(this.parseSegments());
     }
@@ -530,7 +543,7 @@ class UrlParser {
     let value: any = '';
     if (this.peekStartsWith('=')) {
       this.capture('=');
-      var valueMatch = matchUrlQueryParamValue(this.remaining);
+      const valueMatch = matchUrlQueryParamValue(this.remaining);
       if (valueMatch) {
         value = valueMatch;
         this.capture(value);

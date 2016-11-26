@@ -32,7 +32,8 @@ export enum BuiltinTypeName {
   String,
   Int,
   Number,
-  Function
+  Function,
+  Null
 }
 
 export class BuiltinType extends Type {
@@ -73,7 +74,7 @@ export var INT_TYPE = new BuiltinType(BuiltinTypeName.Int);
 export var NUMBER_TYPE = new BuiltinType(BuiltinTypeName.Number);
 export var STRING_TYPE = new BuiltinType(BuiltinTypeName.String);
 export var FUNCTION_TYPE = new BuiltinType(BuiltinTypeName.Function);
-
+export var NULL_TYPE = new BuiltinType(BuiltinTypeName.Null);
 
 export interface TypeVisitor {
   visitBuiltintType(type: BuiltinType, context: any): any;
@@ -175,7 +176,8 @@ export abstract class Expression {
   }
   isBlank(): Expression {
     // Note: We use equals by purpose here to compare to null and undefined in JS.
-    return this.equals(NULL_EXPR);
+    // We use the typed null to allow strictNullChecks to narrow types.
+    return this.equals(TYPED_NULL_EXPR);
   }
   cast(type: Type): Expression { return new CastExpr(this, type); }
   toStmt(): Statement { return new ExpressionStatement(this); }
@@ -451,6 +453,7 @@ export var SUPER_EXPR = new ReadVarExpr(BuiltinVar.Super);
 export var CATCH_ERROR_VAR = new ReadVarExpr(BuiltinVar.CatchError);
 export var CATCH_STACK_VAR = new ReadVarExpr(BuiltinVar.CatchStack);
 export var NULL_EXPR = new LiteralExpr(null, null);
+export var TYPED_NULL_EXPR = new LiteralExpr(null, NULL_TYPE);
 
 //// Statements
 export enum StmtModifier {
@@ -623,7 +626,7 @@ export class ExpressionTransformer implements StatementVisitor, ExpressionVisito
         expr.value.visitExpression(this, context));
   }
   visitInvokeMethodExpr(ast: InvokeMethodExpr, context: any): any {
-    var method = ast.builtin || ast.name;
+    const method = ast.builtin || ast.name;
     return new InvokeMethodExpr(
         ast.receiver.visitExpression(this, context), method,
         this.visitAllExpressions(ast.args, context), ast.type);
@@ -838,7 +841,7 @@ export class RecursiveExpressionVisitor implements StatementVisitor, ExpressionV
 
 export function replaceVarInExpression(
     varName: string, newValue: Expression, expression: Expression): Expression {
-  var transformer = new _ReplaceVariableTransformer(varName, newValue);
+  const transformer = new _ReplaceVariableTransformer(varName, newValue);
   return expression.visitExpression(transformer, null);
 }
 
@@ -850,7 +853,7 @@ class _ReplaceVariableTransformer extends ExpressionTransformer {
 }
 
 export function findReadVarNames(stmts: Statement[]): Set<string> {
-  var finder = new _VariableFinder();
+  const finder = new _VariableFinder();
   finder.visitAllStatements(stmts, null);
   return finder.varNames;
 }

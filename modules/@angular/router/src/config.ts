@@ -8,7 +8,8 @@
 
 import {Type} from '@angular/core';
 import {Observable} from 'rxjs/Observable';
-import {PRIMARY_OUTLET} from './shared';
+import {PRIMARY_OUTLET, Params} from './shared';
+import {UrlSegment, UrlSegmentGroup} from './url_tree';
 
 /**
  * @whatItDoes Represents router configuration.
@@ -153,6 +154,9 @@ import {PRIMARY_OUTLET} from './shared';
  * When navigating to `/team/11/user/jim`, the router will instantiate the wrapper component with
  * the user component in it.
  *
+ * An empty path route inherits its parent's params and data. This is because it cannot have its
+ * own params, and, as a result, it often uses its parent's params and data as its own.
+ *
  * ### Matching Strategy
  *
  * By default the router will look at what is left in the url, and check if it starts with
@@ -218,7 +222,8 @@ import {PRIMARY_OUTLET} from './shared';
  * has to have the primary and aux outlets defined.
  *
  * The router will also merge the `params`, `data`, and `resolve` of the componentless parent into
- * the `params`, `data`, and `resolve` of the children.
+ * the `params`, `data`, and `resolve` of the children. This is done because there is no component
+ * that can inject the activated route of the componentless parent.
  *
  * This is especially useful when child components are defined as follows:
  *
@@ -260,6 +265,41 @@ import {PRIMARY_OUTLET} from './shared';
 export type Routes = Route[];
 
 /**
+ * @whatItDoes Represents the results of the URL matching.
+ *
+ * * `consumed` is an array of the consumed URL segments.
+ * * `posParams` is a map of positional parameters.
+ *
+ * @experimental
+ */
+export type UrlMatchResult = {
+  consumed: UrlSegment[]; posParams?: {[name: string]: UrlSegment};
+};
+
+/**
+ * @whatItDoes A function matching URLs
+ *
+ * @description
+ *
+ * A custom URL matcher can be provided when a combination of `path` and `pathMatch` isn't
+ * expressive enough.
+ *
+ * For instance, the following matcher matches html files.
+ *
+ * ```
+ * function htmlFiles(url: UrlSegment[]) {
+ *  return url.length === 1 && url[0].path.endsWith('.html') ? ({consumed: url}) : null;
+ * }
+ *
+ * const routes = [{ matcher: htmlFiles, component: HtmlCmp }];
+ * ```
+ *
+ * @experimental
+ */
+export type UrlMatcher = (segments: UrlSegment[], group: UrlSegmentGroup, route: Route) =>
+    UrlMatchResult;
+
+/**
  * @whatItDoes Represents the static data associated with a particular route.
  * See {@link Routes} for more details.
  * @stable
@@ -269,7 +309,7 @@ export type Data = {
 };
 
 /**
- *  @whatItDoes Represents the resolved data associated with a particular route.
+ * @whatItDoes Represents the resolved data associated with a particular route.
  * See {@link Routes} for more details.
  * @stable
  */
@@ -299,6 +339,7 @@ export type LoadChildren = string | LoadChildrenCallback;
 export interface Route {
   path?: string;
   pathMatch?: string;
+  matcher?: UrlMatcher;
   component?: Type<any>;
   redirectTo?: string;
   outlet?: string;
@@ -313,10 +354,26 @@ export interface Route {
 }
 
 export function validateConfig(config: Routes): void {
-  config.forEach(validateNode);
+  // forEach doesn't iterate undefined values
+  for (let i = 0; i < config.length; i++) {
+    validateNode(config[i]);
+  }
 }
 
 function validateNode(route: Route): void {
+  if (!route) {
+    throw new Error(`
+      Invalid route configuration: Encountered undefined route.
+      The reason might be an extra comma.
+       
+      Example: 
+      const routes: Routes = [
+        { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
+        { path: 'dashboard',  component: DashboardComponent },, << two commas
+        { path: 'detail/:id', component: HeroDetailComponent }
+      ];
+    `);
+  }
   if (Array.isArray(route)) {
     throw new Error(`Invalid route configuration: Array cannot be specified`);
   }
@@ -339,6 +396,10 @@ function validateNode(route: Route): void {
   if (!!route.redirectTo && !!route.component) {
     throw new Error(
         `Invalid configuration of route '${route.path}': redirectTo and component cannot be used together`);
+  }
+  if (!!route.path && !!route.matcher) {
+    throw new Error(
+        `Invalid configuration of route '${route.path}': path and matcher cannot be used together`);
   }
   if (route.redirectTo === undefined && !route.component && !route.children &&
       !route.loadChildren) {

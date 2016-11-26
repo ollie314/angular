@@ -77,9 +77,19 @@ export function setUpControl(control: FormControl, dir: NgControl): void {
 export function cleanUpControl(control: FormControl, dir: NgControl) {
   dir.valueAccessor.registerOnChange(() => _noControlError(dir));
   dir.valueAccessor.registerOnTouched(() => _noControlError(dir));
-  dir._rawValidators.forEach((validator: Validator) => validator.registerOnValidatorChange(null));
-  dir._rawAsyncValidators.forEach(
-      (validator: Validator) => validator.registerOnValidatorChange(null));
+
+  dir._rawValidators.forEach((validator: any) => {
+    if (validator.registerOnValidatorChange) {
+      validator.registerOnValidatorChange(null);
+    }
+  });
+
+  dir._rawAsyncValidators.forEach((validator: any) => {
+    if (validator.registerOnValidatorChange) {
+      validator.registerOnValidatorChange(null);
+    }
+  });
+
   if (control) control._clearChangeFns();
 }
 
@@ -142,9 +152,9 @@ export function selectValueAccessor(
     dir: NgControl, valueAccessors: ControlValueAccessor[]): ControlValueAccessor {
   if (!valueAccessors) return null;
 
-  var defaultAccessor: ControlValueAccessor;
-  var builtinAccessor: ControlValueAccessor;
-  var customAccessor: ControlValueAccessor;
+  let defaultAccessor: ControlValueAccessor;
+  let builtinAccessor: ControlValueAccessor;
+  let customAccessor: ControlValueAccessor;
   valueAccessors.forEach((v: ControlValueAccessor) => {
     if (v.constructor === DefaultValueAccessor) {
       defaultAccessor = v;

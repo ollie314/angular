@@ -6,15 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {describe, expect, it} from '@angular/core/testing/testing_internal';
+import {DEFAULT_INTERPOLATION_CONFIG, HtmlParser} from '@angular/compiler';
 
-import {digestMessage, serializeNodes as serializeI18nNodes} from '../../src/i18n/digest';
+import {digest, serializeNodes as serializeI18nNodes} from '../../src/i18n/digest';
 import {extractMessages, mergeTranslations} from '../../src/i18n/extractor_merger';
 import * as i18n from '../../src/i18n/i18n_ast';
 import {TranslationBundle} from '../../src/i18n/translation_bundle';
 import * as html from '../../src/ml_parser/ast';
-import {HtmlParser} from '../../src/ml_parser/html_parser';
-import {DEFAULT_INTERPOLATION_CONFIG} from '../../src/ml_parser/interpolation_config';
 import {serializeNodes as serializeHtmlNodes} from '../ml_parser/ast_serializer_spec';
 
 export function main() {
@@ -94,9 +92,10 @@ export function main() {
               ],
               [
                 [
-                  'text',
-                  '<ph tag name="START_PARAGRAPH">html, <ph tag name="START_BOLD_TEXT">nested</ph name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">',
-                  '<ph icu name="ICU">{count, plural, =0 {[<ph tag name="START_TAG_SPAN">html</ph name="CLOSE_TAG_SPAN">]}}</ph>',
+                  'text', '<ph tag name="START_PARAGRAPH">html, <ph tag' +
+                      ' name="START_BOLD_TEXT">nested</ph name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">',
+                  '<ph icu name="ICU">{count, plural, =0 {[<ph tag' +
+                      ' name="START_TAG_SPAN">html</ph name="CLOSE_TAG_SPAN">]}}</ph>',
                   '[<ph name="INTERPOLATION">interp</ph>]'
                 ],
                 '', ''
@@ -190,9 +189,8 @@ export function main() {
       it('should extract from attributes in translatable elements', () => {
         expect(extract('<div i18n><p><b i18n-title="m|d" title="msg"></b></p></div>')).toEqual([
           [
-            [
-              '<ph tag name="START_PARAGRAPH"><ph tag name="START_BOLD_TEXT"></ph name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">'
-            ],
+            ['<ph tag name="START_PARAGRAPH"><ph tag name="START_BOLD_TEXT"></ph' +
+             ' name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">'],
             '', ''
           ],
           [['msg'], 'm', 'd'],
@@ -204,9 +202,8 @@ export function main() {
             .toEqual([
               [['msg'], 'm', 'd'],
               [
-                [
-                  '<ph tag name="START_PARAGRAPH"><ph tag name="START_BOLD_TEXT"></ph name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">'
-                ],
+                ['<ph tag name="START_PARAGRAPH"><ph tag name="START_BOLD_TEXT"></ph' +
+                 ' name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">'],
                 '', ''
               ],
             ]);
@@ -220,7 +217,8 @@ export function main() {
               [['msg'], 'm', 'd'],
               [
                 [
-                  '{count, plural, =0 {[<ph tag name="START_PARAGRAPH"><ph tag name="START_BOLD_TEXT"></ph name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">]}}'
+                  '{count, plural, =0 {[<ph tag name="START_PARAGRAPH"><ph tag' +
+                  ' name="START_BOLD_TEXT"></ph name="CLOSE_BOLD_TEXT"></ph name="CLOSE_PARAGRAPH">]}}'
                 ],
                 '', ''
               ],
@@ -351,7 +349,9 @@ export function main() {
         const HTML = `before<!-- i18n --><p>foo</p><span><i>bar</i></span><!-- /i18n -->after`;
         expect(fakeTranslate(HTML))
             .toEqual(
-                'before**<ph tag name="START_PARAGRAPH">foo</ph name="CLOSE_PARAGRAPH"><ph tag name="START_TAG_SPAN"><ph tag name="START_ITALIC_TEXT">bar</ph name="CLOSE_ITALIC_TEXT"></ph name="CLOSE_TAG_SPAN">**after');
+                'before**[ph tag name="START_PARAGRAPH">foo[/ph name="CLOSE_PARAGRAPH">[ph tag' +
+                ' name="START_TAG_SPAN">[ph tag name="START_ITALIC_TEXT">bar[/ph' +
+                ' name="CLOSE_ITALIC_TEXT">[/ph name="CLOSE_TAG_SPAN">**after');
       });
 
       it('should merge nested blocks', () => {
@@ -359,7 +359,9 @@ export function main() {
             `<div>before<!-- i18n --><p>foo</p><span><i>bar</i></span><!-- /i18n -->after</div>`;
         expect(fakeTranslate(HTML))
             .toEqual(
-                '<div>before**<ph tag name="START_PARAGRAPH">foo</ph name="CLOSE_PARAGRAPH"><ph tag name="START_TAG_SPAN"><ph tag name="START_ITALIC_TEXT">bar</ph name="CLOSE_ITALIC_TEXT"></ph name="CLOSE_TAG_SPAN">**after</div>');
+                '<div>before**[ph tag name="START_PARAGRAPH">foo[/ph name="CLOSE_PARAGRAPH">[ph' +
+                ' tag name="START_TAG_SPAN">[ph tag name="START_ITALIC_TEXT">bar[/ph' +
+                ' name="CLOSE_ITALIC_TEXT">[/ph name="CLOSE_TAG_SPAN">**after</div>');
       });
     });
 
@@ -400,15 +402,15 @@ function fakeTranslate(
       extractMessages(htmlNodes, DEFAULT_INTERPOLATION_CONFIG, implicitTags, implicitAttrs)
           .messages;
 
-  const i18nMsgMap: {[id: string]: html.Node[]} = {};
+  const i18nMsgMap: {[id: string]: i18n.Node[]} = {};
 
   messages.forEach(message => {
-    const id = digestMessage(message);
-    const text = serializeI18nNodes(message.nodes).join('');
-    i18nMsgMap[id] = [new html.Text(`**${text}**`, null)];
+    const id = digest(message);
+    const text = serializeI18nNodes(message.nodes).join('').replace(/</g, '[');
+    i18nMsgMap[id] = [new i18n.Text(`**${text}**`, null)];
   });
 
-  const translations = new TranslationBundle(i18nMsgMap);
+  const translations = new TranslationBundle(i18nMsgMap, digest);
 
   const translatedNodes =
       mergeTranslations(

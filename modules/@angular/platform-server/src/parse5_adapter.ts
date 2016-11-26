@@ -63,6 +63,7 @@ export class Parse5DomAdapter extends DomAdapter {
 
   logError(error: string) { console.error(error); }
 
+  // tslint:disable-next-line:no-console
   log(error: string) { console.log(error); }
 
   logGroup(error: string) { console.error(error); }
@@ -76,7 +77,7 @@ export class Parse5DomAdapter extends DomAdapter {
   querySelectorAll(el: any, selector: string): any[] {
     const res: any[] = [];
     const _recursive = (result: any, node: any, selector: any, matcher: any) => {
-      let cNodes = node.childNodes;
+      const cNodes = node.childNodes;
       if (cNodes && cNodes.length > 0) {
         for (let i = 0; i < cNodes.length; i++) {
           const childNode = cNodes[i];
@@ -155,7 +156,7 @@ export class Parse5DomAdapter extends DomAdapter {
   }
   createMouseEvent(eventType: any): Event { return this.createEvent(eventType); }
   createEvent(eventType: string): Event {
-    let event = <Event>{
+    const event = <Event>{
       type: eventType,
       defaultPrevented: false,
       preventDefault: () => { (<any>event).defaultPrevented = true; }
@@ -367,7 +368,7 @@ export class Parse5DomAdapter extends DomAdapter {
   }
   addClass(element: any, className: string) {
     const classList = this.classList(element);
-    let index = classList.indexOf(className);
+    const index = classList.indexOf(className);
     if (index == -1) {
       classList.push(className);
       element.attribs['class'] = element.className = classList.join(' ');
@@ -375,7 +376,7 @@ export class Parse5DomAdapter extends DomAdapter {
   }
   removeClass(element: any, className: string) {
     const classList = this.classList(element);
-    let index = classList.indexOf(className);
+    const index = classList.indexOf(className);
     if (index > -1) {
       classList.splice(index, 1);
       element.attribs['class'] = element.className = classList.join(' ');

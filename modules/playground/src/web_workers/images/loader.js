@@ -9,23 +9,28 @@
 importScripts(
     '../../../vendor/core.js', '../../../vendor/zone.js',
     '../../../vendor/long-stack-trace-zone.js', '../../../vendor/system.src.js',
-    '../../../vendor/Reflect.js', 'b64.js');
+    '../../../vendor/Reflect.js');
 
 
 System.config({
   baseURL: '/all',
 
-  map: {'rxjs': '/all/playground/vendor/rxjs'},
+  map: {
+    'rxjs': '/all/playground/vendor/rxjs',
+    'base64-js': '/all/playground/vendor/base64-js',
+  },
 
   packages: {
     '@angular/core': {main: 'index.js', defaultExtension: 'js'},
     '@angular/compiler': {main: 'index.js', defaultExtension: 'js'},
     '@angular/common': {main: 'index.js', defaultExtension: 'js'},
     '@angular/platform-browser': {main: 'index.js', defaultExtension: 'js'},
+    '@angular/platform-browser-dynamic': {main: 'index.js', defaultExtension: 'js'},
     '@angular/platform-webworker': {main: 'index.js', defaultExtension: 'js'},
     '@angular/platform-webworker-dynamic': {main: 'index.js', defaultExtension: 'js'},
     '@angular/router': {main: 'index.js', defaultExtension: 'js'},
     'rxjs': {defaultExtension: 'js'},
+    'base64-js': {main: 'index.js', defaultExtension: 'js'},
   },
 
   defaultJSExtensions: true

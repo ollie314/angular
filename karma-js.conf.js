@@ -50,7 +50,9 @@ module.exports = function(config) {
       'dist/all/@angular/**/e2e_test/**',
       'dist/all/@angular/router/**',
       'dist/all/@angular/compiler-cli/**',
+      'dist/all/@angular/compiler/test/aot/**',
       'dist/all/@angular/benchpress/**',
+      'dist/all/@angular/language-service/**',
       'dist/all/angular1_router.js',
       'dist/all/@angular/platform-browser/testing/e2e_util.js',
       'dist/examples/**/e2e_test/**',
@@ -90,17 +92,17 @@ module.exports = function(config) {
       project: 'Angular2',
       startTunnel: false,
       retryLimit: 3,
-      timeout: 600,
+      timeout: 1800,
       pollingTimeout: 10000,
     },
 
     browsers: ['Chrome'],
 
     port: 9876,
-    captureTimeout: 60000,
-    browserDisconnectTimeout: 60000,
+    captureTimeout: 180000,
+    browserDisconnectTimeout: 180000,
     browserDisconnectTolerance: 3,
-    browserNoActivityTimeout: 60000,
+    browserNoActivityTimeout: 300000,
   });
 
   if (process.env.TRAVIS) {

@@ -9,7 +9,7 @@
 import {CompileIdentifierMetadata} from '@angular/compiler/src/compile_metadata';
 import {assetUrl} from '@angular/compiler/src/identifiers';
 import * as o from '@angular/compiler/src/output/output_ast';
-import {ImportGenerator} from '@angular/compiler/src/output/path_util';
+import {ImportResolver} from '@angular/compiler/src/output/path_util';
 import {EventEmitter} from '@angular/core';
 import {BaseError} from '@angular/core/src/facade/errors';
 import {ViewType} from '@angular/core/src/linker/view_type';
@@ -20,22 +20,22 @@ export class ExternalClass {
   someMethod(a: any /** TODO #9100 */) { return {'param': a, 'data': this.data}; }
 }
 
-var testDataIdentifier = new CompileIdentifierMetadata({
+const testDataIdentifier = new CompileIdentifierMetadata({
   name: 'ExternalClass',
-  moduleUrl: `asset:@angular/lib/compiler/test/output/output_emitter_util`,
+  moduleUrl: `@angular/compiler/test/output/output_emitter_util`,
   reference: ExternalClass
 });
 
-var eventEmitterIdentifier = new CompileIdentifierMetadata(
+const eventEmitterIdentifier = new CompileIdentifierMetadata(
     {name: 'EventEmitter', moduleUrl: assetUrl('core'), reference: EventEmitter});
 
-var enumIdentifier = new CompileIdentifierMetadata({
+const enumIdentifier = new CompileIdentifierMetadata({
   name: 'ViewType.HOST',
   moduleUrl: assetUrl('core', 'linker/view_type'),
   reference: ViewType.HOST
 });
 
-var baseErrorIdentifier = new CompileIdentifierMetadata(
+const baseErrorIdentifier = new CompileIdentifierMetadata(
     {name: 'BaseError', moduleUrl: assetUrl('core', 'facade/errors'), reference: BaseError});
 
 export var codegenExportsVars = [
@@ -43,7 +43,7 @@ export var codegenExportsVars = [
 ];
 
 
-var _getExpressionsStmts: o.Statement[] = [
+const _getExpressionsStmts: o.Statement[] = [
   o.variable('readVar').set(o.literal('someValue')).toDeclStmt(),
 
   o.variable('changedVar').set(o.literal('initialValue')).toDeclStmt(),
@@ -252,13 +252,8 @@ function createOperatorFn(op: o.BinaryOperator) {
       o.DYNAMIC_TYPE);
 }
 
-export class SimpleJsImportGenerator implements ImportGenerator {
-  getImportPath(moduleUrlStr: string, importedUrlStr: string): string {
-    var importedAssetUrl = ImportGenerator.parseAssetUrl(importedUrlStr);
-    if (importedAssetUrl) {
-      return `${importedAssetUrl.packageName}/${importedAssetUrl.modulePath}`;
-    } else {
-      return importedUrlStr;
-    }
+export class SimpleJsImportGenerator implements ImportResolver {
+  fileNameToModuleName(importedUrlStr: string, moduleUrlStr: string): string {
+    return importedUrlStr;
   }
 }

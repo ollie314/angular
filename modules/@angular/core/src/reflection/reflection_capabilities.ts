@@ -23,7 +23,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
 
   /** @internal */
   _zipTypesAndAnnotations(paramTypes: any[], paramAnnotations: any[]): any[][] {
-    var result: any[][];
+    let result: any[][];
 
     if (typeof paramTypes === 'undefined') {
       result = new Array(paramAnnotations.length);
@@ -31,7 +31,7 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
       result = new Array(paramTypes.length);
     }
 
-    for (var i = 0; i < result.length; i++) {
+    for (let i = 0; i < result.length; i++) {
       // TS outputs Object for parameters without types, while Traceur omits
       // the annotations. For now we preserve the Traceur behavior to aid
       // migration, but this can be revisited.
@@ -56,8 +56,12 @@ export class ReflectionCapabilities implements PlatformReflectionCapabilities {
     }
 
     // API of tsickle for lowering decorators to properties on the class.
-    if ((<any>type).ctorParameters) {
-      const ctorParameters = (<any>type).ctorParameters;
+    const tsickleCtorParams = (<any>type).ctorParameters;
+    if (tsickleCtorParams) {
+      // Newer tsickle uses a function closure
+      // Retain the non-function case for compatibility with older tsickle
+      const ctorParameters =
+          typeof tsickleCtorParams === 'function' ? tsickleCtorParams() : tsickleCtorParams;
       const paramTypes = ctorParameters.map((ctorParam: any) => ctorParam && ctorParam.type);
       const paramAnnotations = ctorParameters.map(
           (ctorParam: any) =>

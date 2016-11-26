@@ -8,7 +8,7 @@
 
 import {SecurityContext} from '@angular/core';
 
-import {CompileDirectiveMetadata, CompilePipeMetadata} from '../compile_metadata';
+import {CompileDirectiveSummary, CompilePipeSummary} from '../compile_metadata';
 import {AST, ASTWithSource, BindingPipe, EmptyExpr, Interpolation, LiteralPrimitive, ParserError, RecursiveAstVisitor, TemplateBinding} from '../expression_parser/ast';
 import {Parser} from '../expression_parser/parser';
 import {isPresent} from '../facade/lang';
@@ -52,16 +52,16 @@ export class BoundProperty {
  * Parses bindings in templates and in the directive host area.
  */
 export class BindingParser {
-  pipesByName: Map<string, CompilePipeMetadata> = new Map();
+  pipesByName: Map<string, CompilePipeSummary> = new Map();
 
   constructor(
       private _exprParser: Parser, private _interpolationConfig: InterpolationConfig,
-      private _schemaRegistry: ElementSchemaRegistry, pipes: CompilePipeMetadata[],
+      private _schemaRegistry: ElementSchemaRegistry, pipes: CompilePipeSummary[],
       private _targetErrors: ParseError[]) {
     pipes.forEach(pipe => this.pipesByName.set(pipe.name, pipe));
   }
 
-  createDirectiveHostPropertyAsts(dirMeta: CompileDirectiveMetadata, sourceSpan: ParseSourceSpan):
+  createDirectiveHostPropertyAsts(dirMeta: CompileDirectiveSummary, sourceSpan: ParseSourceSpan):
       BoundElementPropertyAst[] {
     if (dirMeta.hostProperties) {
       const boundProps: BoundProperty[] = [];
@@ -79,7 +79,7 @@ export class BindingParser {
     }
   }
 
-  createDirectiveHostEventAsts(dirMeta: CompileDirectiveMetadata, sourceSpan: ParseSourceSpan):
+  createDirectiveHostEventAsts(dirMeta: CompileDirectiveSummary, sourceSpan: ParseSourceSpan):
       BoundEventAst[] {
     if (dirMeta.hostListeners) {
       const targetEventAsts: BoundEventAst[] = [];
@@ -112,9 +112,9 @@ export class BindingParser {
   }
 
   parseInlineTemplateBinding(
-      name: string, value: string, sourceSpan: ParseSourceSpan, targetMatchableAttrs: string[][],
-      targetProps: BoundProperty[], targetVars: VariableAst[]) {
-    const bindings = this._parseTemplateBindings(value, sourceSpan);
+      name: string, prefixToken: string, value: string, sourceSpan: ParseSourceSpan,
+      targetMatchableAttrs: string[][], targetProps: BoundProperty[], targetVars: VariableAst[]) {
+    const bindings = this._parseTemplateBindings(prefixToken, value, sourceSpan);
     for (let i = 0; i < bindings.length; i++) {
       const binding = bindings[i];
       if (binding.keyIsVar) {
@@ -129,11 +129,12 @@ export class BindingParser {
     }
   }
 
-  private _parseTemplateBindings(value: string, sourceSpan: ParseSourceSpan): TemplateBinding[] {
+  private _parseTemplateBindings(prefixToken: string, value: string, sourceSpan: ParseSourceSpan):
+      TemplateBinding[] {
     const sourceInfo = sourceSpan.start.toString();
 
     try {
-      const bindingsResult = this._exprParser.parseTemplateBindings(value, sourceInfo);
+      const bindingsResult = this._exprParser.parseTemplateBindings(prefixToken, value, sourceInfo);
       this._reportExpressionParserErrors(bindingsResult.errors, sourceSpan);
       bindingsResult.templateBindings.forEach((binding) => {
         if (isPresent(binding.expression)) {
@@ -250,7 +251,7 @@ export class BindingParser {
     let securityContexts: SecurityContext[];
 
     if (parts.length === 1) {
-      var partValue = parts[0];
+      const partValue = parts[0];
       boundPropertyName = this._schemaRegistry.getMappedPropName(partValue);
       securityContexts = calcPossibleSecurityContexts(
           this._schemaRegistry, elementSelector, boundPropertyName, false);

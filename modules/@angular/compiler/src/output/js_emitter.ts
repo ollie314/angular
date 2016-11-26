@@ -12,20 +12,20 @@ import {isBlank, isPresent} from '../facade/lang';
 import {EmitterVisitorContext, OutputEmitter} from './abstract_emitter';
 import {AbstractJsEmitterVisitor} from './abstract_js_emitter';
 import * as o from './output_ast';
-import {ImportGenerator} from './path_util';
+import {ImportResolver} from './path_util';
 
 export class JavaScriptEmitter implements OutputEmitter {
-  constructor(private _importGenerator: ImportGenerator) {}
+  constructor(private _importGenerator: ImportResolver) {}
   emitStatements(moduleUrl: string, stmts: o.Statement[], exportedVars: string[]): string {
-    var converter = new JsEmitterVisitor(moduleUrl);
-    var ctx = EmitterVisitorContext.createRoot(exportedVars);
+    const converter = new JsEmitterVisitor(moduleUrl);
+    const ctx = EmitterVisitorContext.createRoot(exportedVars);
     converter.visitAllStatements(stmts, ctx);
-    var srcParts: string[] = [];
+    const srcParts: string[] = [];
     converter.importsWithPrefixes.forEach((prefix, importedModuleUrl) => {
       // Note: can't write the real word for import as it screws up system.js auto detection...
       srcParts.push(
           `var ${prefix} = req` +
-          `uire('${this._importGenerator.getImportPath(moduleUrl, importedModuleUrl)}');`);
+          `uire('${this._importGenerator.fileNameToModuleName(importedModuleUrl, moduleUrl)}');`);
     });
     srcParts.push(ctx.toSource());
     return srcParts.join('\n');
@@ -42,7 +42,7 @@ class JsEmitterVisitor extends AbstractJsEmitterVisitor {
       throw new Error(`Internal error: unknown identifier ${ast.value}`);
     }
     if (isPresent(ast.value.moduleUrl) && ast.value.moduleUrl != this._moduleUrl) {
-      var prefix = this.importsWithPrefixes.get(ast.value.moduleUrl);
+      let prefix = this.importsWithPrefixes.get(ast.value.moduleUrl);
       if (isBlank(prefix)) {
         prefix = `import${this.importsWithPrefixes.size}`;
         this.importsWithPrefixes.set(ast.value.moduleUrl, prefix);

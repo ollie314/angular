@@ -43,6 +43,43 @@ interface IControllerInstance extends IBindingDestination {
 type LifecycleHook = '$onChanges' | '$onDestroy' | '$onInit' | '$postLink';
 
 /**
+ * @whatItDoes
+ *
+ * *Part of the [upgrade/static](/docs/ts/latest/api/#!?query=upgrade%2Fstatic)
+ * library for hybrid upgrade apps that support AoT compilation*
+ *
+ * Allows an Angular 1 component to be used from Angular 2+.
+ *
+ * @howToUse
+ *
+ * Let's assume that you have an Angular 1 component called `ng1Hero` that needs
+ * to be made available in Angular 2+ templates.
+ *
+ * {@example upgrade/static/ts/module.ts region="ng1-hero"}
+ *
+ * We must create a {@link Directive} that will make this Angular 1 component
+ * available inside Angular 2+ templates.
+ *
+ * {@example upgrade/static/ts/module.ts region="ng1-hero-wrapper"}
+ *
+ * In this example you can see that we must derive from the {@link UpgradeComponent}
+ * base class but also provide an {@link Directive `@Directive`} decorator. This is
+ * because the AoT compiler requires that this information is statically available at
+ * compile time.
+ *
+ * Note that we must do the following:
+ * * specify the directive's selector (`ng1-hero`)
+ * * specify all inputs and outputs that the Angular 1 component expects
+ * * derive from `UpgradeComponent`
+ * * call the base class from the constructor, passing
+ *   * the Angular 1 name of the component (`ng1Hero`)
+ *   * the {@link ElementRef} and {@link Injector} for the component wrapper
+ *
+ * @description
+ *
+ * A helper class that should be used as a base class for creating Angular directives
+ * that wrap Angular 1 components that need to be "upgraded".
+ *
  * @experimental
  */
 export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
@@ -63,6 +100,22 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
   private controllerInstance: IControllerInstance = null;
   private bindingDestination: IBindingDestination = null;
 
+  /**
+   * Create a new `UpgradeComponent` instance. You should not normally need to do this.
+   * Instead you should derive a new class from this one and call the super constructor
+   * from the base class.
+   *
+   * {@example upgrade/static/ts/module.ts region="ng1-hero-wrapper" }
+   *
+   * * The `name` parameter should be the name of the Angular 1 directive.
+   * * The `elementRef` and `injector` parameters should be acquired from Angular by dependency
+   *   injection into the base class constructor.
+   *
+   * Note that we must manually implement lifecycle hooks that call through to the super class.
+   * This is because, at the moment, the AoT compiler is not able to tell that the
+   * `UpgradeComponent`
+   * already implements them and so does not wire up calls to them at runtime.
+   */
   constructor(private name: string, private elementRef: ElementRef, private injector: Injector) {
     this.$injector = injector.get($INJECTOR);
     this.$compile = this.$injector.get($COMPILE);
@@ -77,7 +130,7 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
     this.bindings = this.initializeBindings(this.directive);
     this.linkFn = this.compileTemplate(this.directive);
 
-    // We ask for the Angular 1 scope from the Angular 2 injector, since
+    // We ask for the Angular 1 scope from the Angular 2+ injector, since
     // we will put the new component scope onto the new injector for each component
     const $parentScope = injector.get($SCOPE);
     // QUESTION 1: Should we create an isolated scope if the scope is only true?
@@ -103,7 +156,7 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
     const attrs: angular.IAttributes = NOT_SUPPORTED;
     const transcludeFn: angular.ITranscludeFunction = NOT_SUPPORTED;
     const directiveRequire = this.getDirectiveRequire(this.directive);
-    let requiredControllers =
+    const requiredControllers =
         this.resolveRequire(this.directive.name, this.$element, directiveRequire);
 
     if (this.directive.bindToController && isMap(directiveRequire)) {
@@ -122,8 +175,8 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
       preLink(this.$componentScope, this.$element, attrs, requiredControllers, transcludeFn);
     }
 
-    var childNodes: Node[] = [];
-    var childNode: Node;
+    const childNodes: Node[] = [];
+    let childNode: Node;
     while (childNode = this.element.firstChild) {
       this.element.removeChild(childNode);
       childNodes.push(childNode);
@@ -249,7 +302,7 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
             bindings.propertyToOutputMap[propName] = propName;
             break;
           default:
-            var json = JSON.stringify(context);
+            let json = JSON.stringify(context);
             throw new Error(
                 `Unexpected mapping '${bindingType}' in '${json}' in '${this.name}' directive.`);
         }
@@ -263,8 +316,8 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
     if (this.directive.template !== undefined) {
       return this.compileHtml(getOrCall(this.directive.template));
     } else if (this.directive.templateUrl) {
-      var url = getOrCall(this.directive.templateUrl);
-      var html = this.$templateCache.get(url) as string;
+      const url = getOrCall(this.directive.templateUrl);
+      const html = this.$templateCache.get(url) as string;
       if (html !== undefined) {
         return this.compileHtml(html);
       } else {
@@ -288,8 +341,8 @@ export class UpgradeComponent implements OnInit, OnChanges, DoCheck, OnDestroy {
       controllerType: angular.IController, $scope: angular.IScope,
       $element: angular.IAugmentedJQuery, controllerAs: string) {
     // TODO: Document that we do not pre-assign bindings on the controller instance
-    var locals = {$scope, $element};
-    var controller = this.$controller(controllerType, locals, null, controllerAs);
+    const locals = {$scope, $element};
+    const controller = this.$controller(controllerType, locals, null, controllerAs);
     $element.data(controllerKey(this.directive.name), controller);
     return controller;
   }

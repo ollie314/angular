@@ -20,8 +20,8 @@ export class AnimationGroupPlayer implements AnimationPlayer {
   public parentPlayer: AnimationPlayer = null;
 
   constructor(private _players: AnimationPlayer[]) {
-    var count = 0;
-    var total = this._players.length;
+    let count = 0;
+    const total = this._players.length;
     if (total == 0) {
       scheduleMicroTask(() => this._onFinish());
     } else {
@@ -88,16 +88,18 @@ export class AnimationGroupPlayer implements AnimationPlayer {
     this._started = false;
   }
 
-  setPosition(p: any /** TODO #9100 */): void {
+  setPosition(p: number): void {
     this._players.forEach(player => { player.setPosition(p); });
   }
 
   getPosition(): number {
-    var min = 0;
+    let min = 0;
     this._players.forEach(player => {
-      var p = player.getPosition();
+      const p = player.getPosition();
       min = Math.min(p, min);
     });
     return min;
   }
+
+  get players(): AnimationPlayer[] { return this._players; }
 }

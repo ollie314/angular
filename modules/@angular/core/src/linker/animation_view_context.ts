@@ -8,14 +8,15 @@
 import {AnimationGroupPlayer} from '../animation/animation_group_player';
 import {AnimationPlayer} from '../animation/animation_player';
 import {queueAnimation as queueAnimationGlobally} from '../animation/animation_queue';
-import {AnimationTransitionEvent} from '../animation/animation_transition_event';
+import {AnimationSequencePlayer} from '../animation/animation_sequence_player';
 import {ViewAnimationMap} from '../animation/view_animation_map';
+import {ListWrapper} from '../facade/collection';
 
 export class AnimationViewContext {
   private _players = new ViewAnimationMap();
 
   onAllActiveAnimationsDone(callback: () => any): void {
-    var activeAnimationPlayers = this._players.getAllPlayers();
+    const activeAnimationPlayers = this._players.getAllPlayers();
     // we check for the length to avoid having GroupAnimationPlayer
     // issue an unnecessary microtask when zero players are passed in
     if (activeAnimationPlayers.length) {
@@ -30,15 +31,26 @@ export class AnimationViewContext {
     this._players.set(element, animationName, player);
   }
 
-  cancelActiveAnimation(element: any, animationName: string, removeAllAnimations: boolean = false):
-      void {
+  getAnimationPlayers(element: any, animationName: string, removeAllAnimations: boolean = false):
+      AnimationPlayer[] {
+    const players: AnimationPlayer[] = [];
     if (removeAllAnimations) {
-      this._players.findAllPlayersByElement(element).forEach(player => player.destroy());
+      this._players.findAllPlayersByElement(element).forEach(
+          player => { _recursePlayers(player, players); });
     } else {
-      var player = this._players.find(element, animationName);
-      if (player) {
-        player.destroy();
+      const currentPlayer = this._players.find(element, animationName);
+      if (currentPlayer) {
+        _recursePlayers(currentPlayer, players);
       }
     }
+    return players;
+  }
+}
+
+function _recursePlayers(player: AnimationPlayer, collectedPlayers: AnimationPlayer[]) {
+  if ((player instanceof AnimationGroupPlayer) || (player instanceof AnimationSequencePlayer)) {
+    player.players.forEach(player => _recursePlayers(player, collectedPlayers));
+  } else {
+    collectedPlayers.push(player);
   }
 }

@@ -17,9 +17,14 @@ PACKAGES=(core
   upgrade
   router
   compiler-cli
+  language-service
   benchpress)
 BUILD_ALL=true
 BUNDLE=true
+VERSION_PREFIX=$(node -p "require('./package.json').version")
+VERSION_SUFFIX="-$(git log --oneline -1 | awk '{print $1}')"
+ROUTER_VERSION_PREFIX=$(node -p "require('./package.json').version.replace(/^2/, '3')")
+REMOVE_BENCHPRESS=false
 
 for ARG in "$@"; do
   case "$ARG" in
@@ -31,12 +36,20 @@ for ARG in "$@"; do
     --bundle=*)
       BUNDLE=( "${ARG#--bundle=}" )
       ;;
+    --publish)
+      VERSION_SUFFIX=""
+      REMOVE_BENCHPRESS=true
+      ;;
     *)
       echo "Unknown option $ARG."
       exit 1
       ;;
   esac
 done
+
+VERSION="${VERSION_PREFIX}${VERSION_SUFFIX}"
+ROUTER_VERSION="${ROUTER_VERSION_PREFIX}${VERSION_SUFFIX}"
+echo "====== BUILDING: Version ${VERSION} (Router ${ROUTER_VERSION})"
 
 export NODE_PATH=${NODE_PATH}:$(pwd)/dist/all:$(pwd)/dist/tools
 TSC="node --max-old-space-size=3000 dist/tools/@angular/tsc-wrapped/src/main"
@@ -63,7 +76,7 @@ if [[ ${BUILD_ALL} == true ]]; then
   ln -s ../../../../node_modules/zone.js/dist/zone.js .
   ln -s ../../../../node_modules/zone.js/dist/long-stack-trace-zone.js .
   ln -s ../../../../node_modules/systemjs/dist/system.src.js .
-  ln -s ../../../../node_modules/base64-js/lib/b64.js .
+  ln -s ../../../../node_modules/base64-js .
   ln -s ../../../../node_modules/reflect-metadata/Reflect.js .
   ln -s ../../../../node_modules/rxjs .
   ln -s ../../../../node_modules/angular/angular.js .
@@ -79,7 +92,6 @@ if [[ ${BUILD_ALL} == true ]]; then
   ln -s ../../../../node_modules/zone.js/dist/zone.js .
   ln -s ../../../../node_modules/zone.js/dist/long-stack-trace-zone.js .
   ln -s ../../../../node_modules/systemjs/dist/system.src.js .
-  ln -s ../../../../node_modules/base64-js/lib/b64.js .
   ln -s ../../../../node_modules/reflect-metadata/Reflect.js .
   ln -s ../../../../node_modules/rxjs .
   ln -s ../../../../node_modules/angular/angular.js .
@@ -107,7 +119,13 @@ do
   UMD_ES5_MIN_PATH=${DESTDIR}/bundles/${PACKAGE}.umd.min.js
   UMD_STATIC_ES5_MIN_PATH=${DESTDIR}/bundles/${PACKAGE}-static.umd.min.js
   UMD_UPGRADE_ES5_MIN_PATH=${DESTDIR}/bundles/${PACKAGE}-upgrade.umd.min.js
-  LICENSE_BANNER=${PWD}/modules/@angular/license-banner.txt
+
+  if [[ ${PACKAGE} != router ]]; then
+    LICENSE_BANNER=${PWD}/modules/@angular/license-banner.txt
+  fi
+  if [[ ${PACKAGE} == router ]]; then
+    LICENSE_BANNER=${PWD}/modules/@angular/router-license-banner.txt
+  fi
 
   rm -rf ${DESTDIR}
 
@@ -158,7 +176,6 @@ do
       mv ${UMD_ES5_PATH}.tmp ${UMD_ES5_PATH}
       $UGLIFYJS -c --screw-ie8 --comments -o ${UMD_ES5_MIN_PATH} ${UMD_ES5_PATH}
 
-
       if [[ -e rollup-testing.config.js ]]; then
         echo "======         Rollup ${PACKAGE} testing"
         ../../../node_modules/.bin/rollup -c rollup-testing.config.js
@@ -192,8 +209,24 @@ do
         $UGLIFYJS -c --screw-ie8 --comments -o ${UMD_UPGRADE_ES5_MIN_PATH} ${UMD_UPGRADE_ES5_PATH}
       fi
     ) 2>&1 | grep -v "as external dependency"
-
   fi
+  
+  (
+    echo "======      VERSION: Updating version references"
+    cd ${DESTDIR}
+    echo "======       EXECUTE: perl -p -i -e \"s/0\.0\.0\-PLACEHOLDER/${VERSION}/g\" $""(grep -ril 0\.0\.0\-PLACEHOLDER .)"
+    perl -p -i -e "s/0\.0\.0\-PLACEHOLDER/${VERSION}/g" $(grep -ril 0\.0\.0\-PLACEHOLDER .) < /dev/null 2> /dev/null
+    echo "======       EXECUTE: perl -p -i -e \"s/0\.0\.0\-ROUTERPLACEHOLDER/${ROUTER_VERSION}/g\" $""(grep -ril 0\.0\.0\-ROUTERPLACEHOLDER .)"
+    perl -p -i -e "s/0\.0\.0\-ROUTERPLACEHOLDER/${ROUTER_VERSION}/g" $(grep -ril 0\.0\.0\-ROUTERPLACEHOLDER .) < /dev/null 2> /dev/null
+  )
 done
 
+echo ""
+echo "====== Building examples: ./modules/@angular/examples/build.sh ====="
 ./modules/@angular/examples/build.sh
+
+if [[ ${REMOVE_BENCHPRESS} == true ]]; then
+  echo ""
+  echo "==== Removing benchpress from publication"
+  rm -r dist/packages-dist/benchpress
+fi

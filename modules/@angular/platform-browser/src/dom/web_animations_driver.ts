@@ -6,6 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {AnimationPlayer} from '@angular/core';
 import {isPresent} from '../facade/lang';
 import {AnimationKeyframe, AnimationStyles} from '../private_import_core';
 
@@ -15,17 +16,16 @@ import {WebAnimationsPlayer} from './web_animations_player';
 export class WebAnimationsDriver implements AnimationDriver {
   animate(
       element: any, startingStyles: AnimationStyles, keyframes: AnimationKeyframe[],
-      duration: number, delay: number, easing: string): WebAnimationsPlayer {
-    var formattedSteps: {[key: string]: string | number}[] = [];
-    var startingStyleLookup: {[key: string]: string | number} = {};
-    if (isPresent(startingStyles) && startingStyles.styles.length > 0) {
-      startingStyleLookup = _populateStyles(element, startingStyles, {});
-      startingStyleLookup['offset'] = 0;
-      formattedSteps.push(startingStyleLookup);
+      duration: number, delay: number, easing: string,
+      previousPlayers: AnimationPlayer[] = []): WebAnimationsPlayer {
+    let formattedSteps: {[key: string]: string | number}[] = [];
+    let startingStyleLookup: {[key: string]: string | number} = {};
+    if (isPresent(startingStyles)) {
+      startingStyleLookup = _populateStyles(startingStyles, {});
     }
 
     keyframes.forEach((keyframe: AnimationKeyframe) => {
-      let data = _populateStyles(element, keyframe.styles, startingStyleLookup);
+      const data = _populateStyles(keyframe.styles, startingStyleLookup);
       data['offset'] = keyframe.offset;
       formattedSteps.push(data);
     });
@@ -35,12 +35,12 @@ export class WebAnimationsDriver implements AnimationDriver {
     // end with the same values. Removing the offset and having only
     // start/end values is suitable enough for the web-animations API
     if (formattedSteps.length == 1) {
-      var start = formattedSteps[0];
+      const start = formattedSteps[0];
       start['offset'] = null;
       formattedSteps = [start, start];
     }
 
-    var playerOptions: {[key: string]: string | number} = {
+    const playerOptions: {[key: string]: string | number} = {
       'duration': duration,
       'delay': delay,
       'fill': 'both'  // we use `both` because it allows for styling at 0% to work with `delay`
@@ -52,14 +52,17 @@ export class WebAnimationsDriver implements AnimationDriver {
       playerOptions['easing'] = easing;
     }
 
-    return new WebAnimationsPlayer(element, formattedSteps, playerOptions);
+    // there may be a chance a NoOp player is returned depending
+    // on when the previous animation was cancelled
+    previousPlayers = previousPlayers.filter(filterWebAnimationPlayerFn);
+    return new WebAnimationsPlayer(
+        element, formattedSteps, playerOptions, <WebAnimationsPlayer[]>previousPlayers);
   }
 }
 
-function _populateStyles(
-    element: any, styles: AnimationStyles,
-    defaultStyles: {[key: string]: string | number}): {[key: string]: string | number} {
-  var data: {[key: string]: string | number} = {};
+function _populateStyles(styles: AnimationStyles, defaultStyles: {[key: string]: string | number}):
+    {[key: string]: string | number} {
+  const data: {[key: string]: string | number} = {};
   styles.styles.forEach(
       (entry) => { Object.keys(entry).forEach(prop => { data[prop] = entry[prop]; }); });
   Object.keys(defaultStyles).forEach(prop => {
@@ -68,4 +71,8 @@ function _populateStyles(
     }
   });
   return data;
+}
+
+function filterWebAnimationPlayerFn(player: AnimationPlayer) {
+  return player instanceof WebAnimationsPlayer;
 }

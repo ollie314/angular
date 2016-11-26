@@ -7,7 +7,7 @@
  */
 
 
-import {CompileDirectiveMetadata, CompileIdentifierMetadata, CompileTokenMetadata} from '../compile_metadata';
+import {CompileDirectiveMetadata, CompileDirectiveSummary, CompileIdentifierMetadata, CompileTokenMetadata} from '../compile_metadata';
 import {createDiTokenExpression} from '../compiler_util/identifier_util';
 import {isPresent} from '../facade/lang';
 import {Identifiers, resolveIdentifier} from '../identifiers';
@@ -21,8 +21,8 @@ export function getPropertyInView(
   if (callingView === definedView) {
     return property;
   } else {
-    var viewProp: o.Expression = o.THIS_EXPR;
-    var currView: CompileView = callingView;
+    let viewProp: o.Expression = o.THIS_EXPR;
+    let currView: CompileView = callingView;
     while (currView !== definedView && isPresent(currView.declarationElement.view)) {
       currView = currView.declarationElement.view;
       viewProp = viewProp.prop('parentView');
@@ -64,7 +64,7 @@ export function injectFromViewParentInjector(
   } else {
     viewExpr = o.THIS_EXPR.prop('parentView');
   }
-  let args = [createDiTokenExpression(token), o.THIS_EXPR.prop('parentIndex')];
+  const args = [createDiTokenExpression(token), o.THIS_EXPR.prop('parentIndex')];
   if (optional) {
     args.push(o.NULL_EXPR);
   }
@@ -72,7 +72,8 @@ export function injectFromViewParentInjector(
 }
 
 export function getViewClassName(
-    component: CompileDirectiveMetadata, embeddedTemplateIndex: number): string {
+    component: CompileDirectiveSummary | CompileDirectiveMetadata,
+    embeddedTemplateIndex: number): string {
   return `View_${component.type.name}${embeddedTemplateIndex}`;
 }
 

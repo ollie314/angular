@@ -36,6 +36,7 @@ export class AngularProfiler {
 
   constructor(ref: ComponentRef<any>) { this.appRef = ref.injector.get(ApplicationRef); }
 
+  // tslint:disable:no-console
   /**
    * Exercises change detection in a loop and then prints the average amount of
    * time in milliseconds how long a single round of change detection takes for
@@ -53,15 +54,15 @@ export class AngularProfiler {
    * ```
    */
   timeChangeDetection(config: any): ChangeDetectionPerfRecord {
-    var record = config && config['record'];
-    var profileName = 'Change Detection';
+    const record = config && config['record'];
+    const profileName = 'Change Detection';
     // Profiler is not available in Android browsers, nor in IE 9 without dev tools opened
-    var isProfilerAvailable = isPresent(window.console.profile);
+    const isProfilerAvailable = isPresent(window.console.profile);
     if (record && isProfilerAvailable) {
       window.console.profile(profileName);
     }
     const start = getDOM().performanceNow();
-    var numTicks = 0;
+    let numTicks = 0;
     while (numTicks < 5 || (getDOM().performanceNow() - start) < 500) {
       this.appRef.tick();
       numTicks++;
