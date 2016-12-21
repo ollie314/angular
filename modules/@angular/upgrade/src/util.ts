@@ -6,13 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-
-export function stringify(obj: any): string {
-  if (typeof obj == 'function') return obj.name || obj.toString();
-  return '' + obj;
-}
-
-
 export function onError(e: any) {
   // TODO: (misko): We seem to not have a stack trace here!
   if (console.error) {
@@ -26,4 +19,30 @@ export function onError(e: any) {
 
 export function controllerKey(name: string): string {
   return '$' + name + 'Controller';
+}
+
+export function getAttributesAsArray(node: Node): string[][] {
+  const attributes = node.attributes;
+  let asArray: string[][];
+  if (attributes) {
+    let attrLen = attributes.length;
+    asArray = new Array(attrLen);
+    for (let i = 0; i < attrLen; i++) {
+      asArray[i] = [attributes[i].nodeName, attributes[i].nodeValue];
+    }
+  }
+  return asArray || [];
+}
+
+export class Deferred<R> {
+  promise: Promise<R>;
+  resolve: (value?: R|PromiseLike<R>) => void;
+  reject: (error?: any) => void;
+
+  constructor() {
+    this.promise = new Promise((res, rej) => {
+      this.resolve = res;
+      this.reject = rej;
+    });
+  }
 }

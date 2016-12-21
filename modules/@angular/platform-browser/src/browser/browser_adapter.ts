@@ -67,7 +67,7 @@ const _chromeNumKeyPadMap = {
  * @security Tread carefully! Interacting with the DOM directly is dangerous and
  * can introduce XSS risks.
  */
-/* tslint:disable:requireParameterType */
+/* tslint:disable:requireParameterType no-console */
 export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   parse(templateHtml: string) { throw new Error('parse not implemented'); }
   static makeCurrent() { setRootDomAdapter(new BrowserDomAdapter()); }
@@ -79,13 +79,16 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   // TODO(tbosch): move this into a separate environment class once we have it
   logError(error: string): void {
     if (window.console) {
-      (window.console.error || window.console.log)(error);
+      if (console.error) {
+        console.error(error);
+      } else {
+        console.log(error);
+      }
     }
   }
 
   log(error: string): void {
     if (window.console) {
-      // tslint:disable-next-line:no-console
       window.console.log && window.console.log(error);
     }
   }
@@ -93,7 +96,6 @@ export class BrowserDomAdapter extends GenericBrowserDomAdapter {
   logGroup(error: string): void {
     if (window.console) {
       window.console.group && window.console.group(error);
-      this.logError(error);
     }
   }
 

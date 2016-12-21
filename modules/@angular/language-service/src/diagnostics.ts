@@ -55,12 +55,14 @@ export function getDeclarationDiagnostics(
 
   let directives: Set<StaticSymbol>|undefined = undefined;
   for (const declaration of declarations) {
-    let report = (message: string) => {
-      results.push(
-          <Diagnostic>{kind: DiagnosticKind.Error, span: declaration.declarationSpan, message});
+    const report = (message: string, span?: Span) => {
+      results.push(<Diagnostic>{
+        kind: DiagnosticKind.Error,
+        span: span || declaration.declarationSpan, message
+      });
     };
-    if (declaration.error) {
-      report(declaration.error);
+    for (const error of declaration.errors) {
+      report(error.message, error.span);
     }
     if (declaration.metadata) {
       if (declaration.metadata.isComponent) {
@@ -206,12 +208,13 @@ class ExpressionDiagnosticsVisitor extends TemplateAstChildVisitor {
   private diagnoseExpression(ast: AST, offset: number, includeEvent: boolean) {
     const scope = this.getExpressionScope(this.path, includeEvent);
     this.diagnostics.push(
-        ...getExpressionDiagnostics(scope, ast, this.info.template.query)
-            .map(d => ({
-                   span: offsetSpan(d.ast.span, offset + this.info.template.span.start),
-                   kind: d.kind,
-                   message: d.message
-                 })));
+        ...getExpressionDiagnostics(scope, ast, this.info.template.query, {
+          event: includeEvent
+        }).map(d => ({
+                 span: offsetSpan(d.ast.span, offset + this.info.template.span.start),
+                 kind: d.kind,
+                 message: d.message
+               })));
   }
 
   private push(ast: TemplateAst) { this.path.push(ast); }

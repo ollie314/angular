@@ -20,13 +20,15 @@ export class WebAnimationsDriver implements AnimationDriver {
       previousPlayers: AnimationPlayer[] = []): WebAnimationsPlayer {
     let formattedSteps: {[key: string]: string | number}[] = [];
     let startingStyleLookup: {[key: string]: string | number} = {};
-    if (isPresent(startingStyles)) {
+    if (isPresent(startingStyles) && startingStyles.styles.length > 0) {
       startingStyleLookup = _populateStyles(startingStyles, {});
+      startingStyleLookup['offset'] = 0;
+      formattedSteps.push(startingStyleLookup);
     }
 
     keyframes.forEach((keyframe: AnimationKeyframe) => {
       const data = _populateStyles(keyframe.styles, startingStyleLookup);
-      data['offset'] = keyframe.offset;
+      data['offset'] = Math.max(0, Math.min(1, keyframe.offset));
       formattedSteps.push(data);
     });
 

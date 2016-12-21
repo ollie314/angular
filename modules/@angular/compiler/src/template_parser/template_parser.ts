@@ -6,31 +6,28 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Inject, Injectable, OpaqueToken, Optional, SchemaMetadata, SecurityContext} from '@angular/core';
-
-import {CompileDirectiveMetadata, CompileDirectiveSummary, CompilePipeSummary, CompileTemplateMetadata, CompileTemplateSummary, CompileTokenMetadata, CompileTypeMetadata, removeIdentifierDuplicates} from '../compile_metadata';
-import {AST, ASTWithSource, BindingPipe, EmptyExpr, Interpolation, ParserError, RecursiveAstVisitor, TemplateBinding} from '../expression_parser/ast';
+import {Inject, OpaqueToken, Optional, SchemaMetadata} from '@angular/core';
+import {CompileDirectiveMetadata, CompileDirectiveSummary, CompilePipeSummary, CompileTemplateSummary, CompileTokenMetadata, CompileTypeMetadata, identifierName} from '../compile_metadata';
 import {Parser} from '../expression_parser/parser';
 import {isPresent} from '../facade/lang';
 import {I18NHtmlParser} from '../i18n/i18n_html_parser';
-import {Identifiers, identifierToken, resolveIdentifierToken} from '../identifiers';
+import {Identifiers, createIdentifierToken, identifierToken} from '../identifiers';
+import {CompilerInjectable} from '../injectable';
 import * as html from '../ml_parser/ast';
 import {ParseTreeResult} from '../ml_parser/html_parser';
 import {expandNodes} from '../ml_parser/icu_ast_expander';
 import {InterpolationConfig} from '../ml_parser/interpolation_config';
-import {mergeNsAndName, splitNsName} from '../ml_parser/tags';
+import {splitNsName} from '../ml_parser/tags';
 import {ParseError, ParseErrorLevel, ParseSourceSpan} from '../parse_util';
-import {Console, view_utils} from '../private_import_core';
+import {Console} from '../private_import_core';
 import {ProviderElementContext, ProviderViewContext} from '../provider_analyzer';
 import {ElementSchemaRegistry} from '../schema/element_schema_registry';
 import {CssSelector, SelectorMatcher} from '../selector';
 import {isStyleUrlResolvable} from '../style_url_resolver';
-
+import {SyntaxError} from '../util';
 import {BindingParser, BoundProperty} from './binding_parser';
 import {AttrAst, BoundDirectivePropertyAst, BoundElementPropertyAst, BoundEventAst, BoundTextAst, DirectiveAst, ElementAst, EmbeddedTemplateAst, NgContentAst, PropertyBindingType, ReferenceAst, TemplateAst, TemplateAstVisitor, TextAst, VariableAst, templateVisitAll} from './template_ast';
 import {PreparsedElementType, preparseElement} from './template_preparser';
-
-
 
 // Group 1 = "bind-"
 // Group 2 = "let-"
@@ -82,7 +79,7 @@ export class TemplateParseResult {
   constructor(public templateAst?: TemplateAst[], public errors?: ParseError[]) {}
 }
 
-@Injectable()
+@CompilerInjectable()
 export class TemplateParser {
   constructor(
       private _exprParser: Parser, private _schemaRegistry: ElementSchemaRegistry,
@@ -102,7 +99,7 @@ export class TemplateParser {
 
     if (errors.length > 0) {
       const errorString = errors.join('\n');
-      throw new Error(`Template parse errors:\n${errorString}`);
+      throw new SyntaxError(`Template parse errors:\n${errorString}`);
     }
 
     return result.templateAst;
@@ -546,7 +543,8 @@ class TemplateParseVisitor implements html.Visitor {
     let component: CompileDirectiveSummary = null;
     const directiveAsts = directives.map((directive) => {
       const sourceSpan = new ParseSourceSpan(
-          elementSourceSpan.start, elementSourceSpan.end, `Directive ${directive.type.name}`);
+          elementSourceSpan.start, elementSourceSpan.end,
+          `Directive ${identifierName(directive.type)}`);
       if (directive.isComponent) {
         component = directive;
       }
@@ -579,7 +577,7 @@ class TemplateParseVisitor implements html.Visitor {
       } else if (!component) {
         let refToken: CompileTokenMetadata = null;
         if (isTemplateElement) {
-          refToken = resolveIdentifierToken(Identifiers.TemplateRef);
+          refToken = createIdentifierToken(Identifiers.TemplateRef);
         }
         targetReferences.push(new ReferenceAst(elOrDirRef.name, refToken, elOrDirRef.sourceSpan));
       }
@@ -640,7 +638,7 @@ class TemplateParseVisitor implements html.Visitor {
 
   private _findComponentDirectiveNames(directives: DirectiveAst[]): string[] {
     return this._findComponentDirectives(directives)
-        .map(directive => directive.directive.type.name);
+        .map(directive => identifierName(directive.directive.type));
   }
 
   private _assertOnlyOneComponent(directives: DirectiveAst[], sourceSpan: ParseSourceSpan) {
@@ -684,7 +682,7 @@ class TemplateParseVisitor implements html.Visitor {
     }
     elementProps.forEach(prop => {
       this._reportError(
-          `Property binding ${prop.name} not used by any directive on an embedded template. Make sure that the property name is spelled correctly and all directives are listed in the "directives" section.`,
+          `Property binding ${prop.name} not used by any directive on an embedded template. Make sure that the property name is spelled correctly and all directives are listed in the "@NgModule.declarations".`,
           sourceSpan);
     });
   }
@@ -703,7 +701,7 @@ class TemplateParseVisitor implements html.Visitor {
     events.forEach(event => {
       if (isPresent(event.target) || !allDirectiveEvents.has(event.name)) {
         this._reportError(
-            `Event binding ${event.fullName} not emitted by any directive on an embedded template. Make sure that the event name is spelled correctly and all directives are listed in the "directives" section.`,
+            `Event binding ${event.fullName} not emitted by any directive on an embedded template. Make sure that the event name is spelled correctly and all directives are listed in the "@NgModule.declarations".`,
             event.sourceSpan);
       }
     });
@@ -812,7 +810,8 @@ class ElementContext {
   }
 }
 
-function createElementCssSelector(elementName: string, matchableAttrs: string[][]): CssSelector {
+export function createElementCssSelector(
+    elementName: string, matchableAttrs: string[][]): CssSelector {
   const cssSelector = new CssSelector();
   const elNameNoNs = splitNsName(elementName)[1];
 

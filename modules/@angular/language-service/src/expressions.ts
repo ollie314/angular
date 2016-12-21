@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {StaticSymbol} from '@angular/compiler';
+import {StaticSymbol, identifierName, tokenReference} from '@angular/compiler';
 import {AST, ASTWithSource, AstVisitor, Binary, BindingPipe, Chain, Conditional, FunctionCall, ImplicitReceiver, Interpolation, KeyedRead, KeyedWrite, LiteralArray, LiteralMap, LiteralPrimitive, MethodCall, PrefixNot, PropertyRead, PropertyWrite, Quote, SafeMethodCall, SafePropertyRead} from '@angular/compiler/src/expression_parser/ast';
 import {ElementAst, EmbeddedTemplateAst, ReferenceAst, TemplateAst, templateVisitAll} from '@angular/compiler/src/template_parser/template_ast';
 
@@ -16,9 +16,12 @@ import {TemplateAstChildVisitor, TemplateAstPath} from './template_path';
 import {BuiltinType, CompletionKind, Definition, DiagnosticKind, Signature, Span, Symbol, SymbolDeclaration, SymbolQuery, SymbolTable} from './types';
 import {inSpan, spanOf} from './utils';
 
+export interface ExpressionDiagnosticsContext { event?: boolean; }
+
 export function getExpressionDiagnostics(
-    scope: SymbolTable, ast: AST, query: SymbolQuery): TypeDiagnostic[] {
-  const analyzer = new AstType(scope, query);
+    scope: SymbolTable, ast: AST, query: SymbolQuery,
+    context: ExpressionDiagnosticsContext = {}): TypeDiagnostic[] {
+  const analyzer = new AstType(scope, query, context);
   analyzer.getDiagnostics(ast);
   return analyzer.diagnostics;
 }
@@ -30,7 +33,7 @@ export function getExpressionCompletions(
   const tail = path.tail;
   let result: SymbolTable|undefined = scope;
 
-  function getType(ast: AST): Symbol { return new AstType(scope, query).getType(ast); }
+  function getType(ast: AST): Symbol { return new AstType(scope, query, {}).getType(ast); }
 
   // If the completion request is in a not in a pipe or property access then the global scope
   // (that is the scope of the implicit receiver) is the right scope as the user is typing the
@@ -88,7 +91,7 @@ export function getExpressionSymbol(
   if (path.empty) return undefined;
   const tail = path.tail;
 
-  function getType(ast: AST): Symbol { return new AstType(scope, query).getType(ast); }
+  function getType(ast: AST): Symbol { return new AstType(scope, query, {}).getType(ast); }
 
   let symbol: Symbol = undefined;
   let span: Span = undefined;
@@ -189,34 +192,42 @@ export class TypeDiagnostic {
 class AstType implements ExpressionVisitor {
   public diagnostics: TypeDiagnostic[];
 
-  constructor(private scope: SymbolTable, private query: SymbolQuery) {}
+  constructor(
+      private scope: SymbolTable, private query: SymbolQuery,
+      private context: ExpressionDiagnosticsContext) {}
 
   getType(ast: AST): Symbol { return ast.visit(this); }
 
   getDiagnostics(ast: AST): TypeDiagnostic[] {
     this.diagnostics = [];
-    ast.visit(this);
+    const type: Symbol = ast.visit(this);
+    if (this.context.event && type.callable) {
+      this.reportWarning('Unexpected callable expression. Expected a method call', ast);
+    }
     return this.diagnostics;
   }
 
   visitBinary(ast: Binary): Symbol {
     // Treat undefined and null as other.
-    function normalize(kind: BuiltinType): BuiltinType {
+    function normalize(kind: BuiltinType, other: BuiltinType): BuiltinType {
       switch (kind) {
         case BuiltinType.Undefined:
         case BuiltinType.Null:
-          return BuiltinType.Other;
+          return normalize(other, BuiltinType.Other);
       }
       return kind;
     }
 
     const leftType = this.getType(ast.left);
     const rightType = this.getType(ast.right);
-    const leftKind = normalize(this.query.getTypeKind(leftType));
-    const rightKind = normalize(this.query.getTypeKind(rightType));
+    const leftRawKind = this.query.getTypeKind(leftType);
+    const rightRawKind = this.query.getTypeKind(rightType);
+    const leftKind = normalize(leftRawKind, rightRawKind);
+    const rightKind = normalize(rightRawKind, leftRawKind);
 
     // The following swtich implements operator typing similar to the
     // type production tables in the TypeScript specification.
+    // https://github.com/Microsoft/TypeScript/blob/v1.8.10/doc/spec.md#4.19
     const operKind = leftKind << 8 | rightKind;
     switch (ast.operation) {
       case '*':
@@ -403,6 +414,8 @@ class AstType implements ExpressionVisitor {
         return this.query.getBuiltinType(BuiltinType.Boolean);
       case null:
         return this.query.getBuiltinType(BuiltinType.Null);
+      case undefined:
+        return this.query.getBuiltinType(BuiltinType.Undefined);
       default:
         switch (typeof ast.value) {
           case 'string':
@@ -667,7 +680,7 @@ function getReferences(info: TemplateInfo): SymbolDeclaration[] {
     for (const reference of references) {
       let type: Symbol;
       if (reference.value) {
-        type = info.template.query.getTypeSymbol(reference.value.reference);
+        type = info.template.query.getTypeSymbol(tokenReference(reference.value));
       }
       result.push({
         name: reference.name,
@@ -740,12 +753,13 @@ function getVarDeclarations(info: TemplateInfo, path: TemplateAstPath): SymbolDe
 function refinedVariableType(
     type: Symbol, info: TemplateInfo, templateElement: EmbeddedTemplateAst): Symbol {
   // Special case the ngFor directive
-  const ngForDirective = templateElement.directives.find(d => d.directive.type.name == 'NgFor');
+  const ngForDirective =
+      templateElement.directives.find(d => identifierName(d.directive.type) == 'NgFor');
   if (ngForDirective) {
     const ngForOfBinding = ngForDirective.inputs.find(i => i.directiveName == 'ngForOf');
     if (ngForOfBinding) {
       const bindingType =
-          new AstType(info.template.members, info.template.query).getType(ngForOfBinding.value);
+          new AstType(info.template.members, info.template.query, {}).getType(ngForOfBinding.value);
       if (bindingType) {
         return info.template.query.getElementType(bindingType);
       }

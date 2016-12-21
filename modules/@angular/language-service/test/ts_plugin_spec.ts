@@ -29,8 +29,7 @@ describe('plugin', () => {
     }
   });
 
-  let plugin =
-      new LanguageServicePlugin({ts: ts, host: mockHost, service, registry: documentRegistry});
+  let plugin = new LanguageServicePlugin({host: mockHost, service, registry: documentRegistry});
 
   it('should not report template errors on tour of heroes', () => {
     for (let source of program.getSourceFiles()) {
@@ -187,7 +186,8 @@ describe('plugin', () => {
         expectSemanticError('app/ng-if-cases.ts', locationMarker, message);
       }
       it('should report an implicit context reference', () => {
-        expectError('implicit', 'The template context does not have an implicit value');
+        expectError(
+            'implicit', 'The template context does not defined a member called \'unknown\'');
       });
     });
   });

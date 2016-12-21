@@ -21,7 +21,7 @@ describe('completions', () => {
   let mockHost = new MockTypescriptHost(['/app/main.ts', '/app/parsing-cases.ts'], toh);
   let service = ts.createLanguageService(mockHost, documentRegistry);
   let program = service.getProgram();
-  let ngHost = new TypeScriptServiceHost(ts, mockHost, service);
+  let ngHost = new TypeScriptServiceHost(mockHost, service);
   let ngService = createLanguageService(ngHost);
   ngHost.setSite(ngService);
 
@@ -166,6 +166,7 @@ export class MyComponent {
     const originalContent = mockHost.getFileContent(fileName);
     const newContent = originalContent + code;
     mockHost.override(fileName, originalContent + code);
+    ngHost.updateAnalyzedModules();
     try {
       cb(fileName, newContent);
     } finally {

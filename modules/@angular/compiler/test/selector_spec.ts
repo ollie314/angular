@@ -102,6 +102,17 @@ export function main() {
       expect(matched).toEqual([s1[0], 1, s2[0], 2]);
     });
 
+    it('should support "." in attribute names', () => {
+      matcher.addSelectables(s1 = CssSelector.parse('[foo.bar]'), 1);
+
+      expect(matcher.match(CssSelector.parse('[barfoo]')[0], selectableCollector)).toEqual(false);
+      expect(matched).toEqual([]);
+
+      reset();
+      expect(matcher.match(CssSelector.parse('[foo.bar]')[0], selectableCollector)).toEqual(true);
+      expect(matched).toEqual([s1[0], 1]);
+    });
+
     it('should select by attr name only once if the value is from the DOM', () => {
       matcher.addSelectables(s1 = CssSelector.parse('[some-decor]'), 1);
 
@@ -221,6 +232,11 @@ export function main() {
                  CssSelector.parse('p[someOtherAttr].someOtherClass')[0], selectableCollector))
           .toEqual(true);
       expect(matched).toEqual([s1[0], 1, s2[0], 2, s3[0], 3, s4[0], 4]);
+    });
+
+    it('should match * with :not selector', () => {
+      matcher.addSelectables(CssSelector.parse(':not([a])'), 1);
+      expect(matcher.match(CssSelector.parse('div')[0], () => {})).toEqual(true);
     });
 
     it('should match with multiple :not selectors', () => {

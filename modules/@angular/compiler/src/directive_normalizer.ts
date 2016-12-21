@@ -6,11 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Component, Injectable, ViewEncapsulation} from '@angular/core';
+import {Component, ViewEncapsulation} from '@angular/core';
 
 import {CompileAnimationEntryMetadata, CompileDirectiveMetadata, CompileStylesheetMetadata, CompileTemplateMetadata, CompileTypeMetadata} from './compile_metadata';
 import {CompilerConfig} from './config';
 import {isBlank, isPresent, stringify} from './facade/lang';
+import {CompilerInjectable} from './injectable';
 import * as html from './ml_parser/ast';
 import {HtmlParser} from './ml_parser/html_parser';
 import {InterpolationConfig} from './ml_parser/interpolation_config';
@@ -18,7 +19,7 @@ import {ResourceLoader} from './resource_loader';
 import {extractStyleUrls, isStyleUrlResolvable} from './style_url_resolver';
 import {PreparsedElementType, preparseElement} from './template_parser/template_preparser';
 import {UrlResolver} from './url_resolver';
-import {SyncAsyncResult} from './util';
+import {SyncAsyncResult, SyntaxError} from './util';
 
 export interface PrenormalizedTemplateMetadata {
   componentType: any;
@@ -32,7 +33,7 @@ export interface PrenormalizedTemplateMetadata {
   animations?: CompileAnimationEntryMetadata[];
 }
 
-@Injectable()
+@CompilerInjectable()
 export class DirectiveNormalizer {
   private _resourceLoaderCache = new Map<string, Promise<string>>();
 
@@ -70,7 +71,7 @@ export class DirectiveNormalizer {
     } else if (prenormData.templateUrl) {
       normalizedTemplateAsync = this.normalizeTemplateAsync(prenormData);
     } else {
-      throw new Error(
+      throw new SyntaxError(
           `No template specified for component ${stringify(prenormData.componentType)}`);
     }
 
@@ -104,7 +105,7 @@ export class DirectiveNormalizer {
         template, stringify(prenomData.componentType), false, interpolationConfig);
     if (rootNodesAndErrors.errors.length > 0) {
       const errorString = rootNodesAndErrors.errors.join('\n');
-      throw new Error(`Template parse errors:\n${errorString}`);
+      throw new SyntaxError(`Template parse errors:\n${errorString}`);
     }
     const templateMetadataStyles = this.normalizeStylesheet(new CompileStylesheetMetadata({
       styles: prenomData.styles,

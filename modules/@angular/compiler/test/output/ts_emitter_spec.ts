@@ -8,19 +8,25 @@
 
 import {CompileIdentifierMetadata} from '@angular/compiler/src/compile_metadata';
 import * as o from '@angular/compiler/src/output/output_ast';
+import {ImportResolver} from '@angular/compiler/src/output/path_util';
 import {TypeScriptEmitter} from '@angular/compiler/src/output/ts_emitter';
-import {beforeEach, describe, expect, it} from '@angular/core/testing/testing_internal';
-
-import {SimpleJsImportGenerator} from './output_emitter_util';
 
 const someModuleUrl = 'somePackage/somePath';
 const anotherModuleUrl = 'somePackage/someOtherPath';
 
-const sameModuleIdentifier =
-    new CompileIdentifierMetadata({name: 'someLocalId', moduleUrl: someModuleUrl});
+const sameModuleIdentifier: CompileIdentifierMetadata = {
+  reference: {name: 'someLocalId', filePath: someModuleUrl}
+};
 
-const externalModuleIdentifier =
-    new CompileIdentifierMetadata({name: 'someExternalId', moduleUrl: anotherModuleUrl});
+const externalModuleIdentifier: CompileIdentifierMetadata = {
+  reference: {name: 'someExternalId', filePath: anotherModuleUrl}
+};
+
+class SimpleJsImportGenerator implements ImportResolver {
+  fileNameToModuleName(importedUrlStr: string, moduleUrlStr: string): string {
+    return importedUrlStr;
+  }
+}
 
 export function main() {
   // Note supported features of our OutputAsti n TS:
@@ -105,6 +111,14 @@ export function main() {
       expect(emitStmt(o.literal('someStr').toStmt())).toEqual(`'someStr';`);
       expect(emitStmt(o.literalArr([o.literal(1)]).toStmt())).toEqual(`[1];`);
       expect(emitStmt(o.literalMap([['someKey', o.literal(1)]]).toStmt())).toEqual(`{someKey: 1};`);
+    });
+
+    it('should apply quotes to each entry within a map produced with literalMap when true', () => {
+      expect(
+          emitStmt(
+              o.literalMap([['a', o.literal('a')], ['*', o.literal('star')]], null, true).toStmt())
+              .replace(/\s+/gm, ''))
+          .toEqual(`{'a':'a','*':'star'};`);
     });
 
     it('should support blank literals', () => {
@@ -316,6 +330,14 @@ export function main() {
         `import * as import0 from 'somePackage/someOtherPath';`,
         `var a:import0.someExternalId = (null as any);`
       ].join('\n'));
+    });
+
+    it('should support expression types', () => {
+      expect(emitStmt(o.variable('a')
+                          .set(o.NULL_EXPR)
+                          .toDeclStmt(o.expressionType(
+                              o.variable('b'), [o.expressionType(o.variable('c'))]))))
+          .toEqual('var a:b<c> = (null as any);');
     });
 
     it('should support combined types', () => {

@@ -20,7 +20,7 @@ describe('diagnostics', () => {
   let mockHost = new MockTypescriptHost(['/app/main.ts', '/app/parsing-cases.ts'], toh);
   let service = ts.createLanguageService(mockHost, documentRegistry);
   let program = service.getProgram();
-  let ngHost = new TypeScriptServiceHost(ts, mockHost, service);
+  let ngHost = new TypeScriptServiceHost(mockHost, service);
   let ngService = createLanguageService(ngHost);
   ngHost.setSite(ngService);
 
@@ -115,11 +115,60 @@ describe('diagnostics', () => {
       });
     });
 
+    it('should not throw for an invalid class', () => {
+      const code = ` @Component({template: ''}) class`;
+      addCode(
+          code, fileName => { expect(() => ngService.getDiagnostics(fileName)).not.toThrow(); });
+    });
+
+    it('should not report an error for sub-types of string', () => {
+      const code =
+          ` @Component({template: \`<div *ngIf="something === 'foo'"></div>\`}) export class MyComponent { something: 'foo' | 'bar'; }`;
+      addCode(code, fileName => {
+        const diagnostics = ngService.getDiagnostics(fileName);
+        onlyModuleDiagnostics(diagnostics);
+      });
+    });
+
+    it('should report a warning if an event results in a callable expression', () => {
+      const code =
+          ` @Component({template: \`<div (click)="onClick"></div>\`}) export class MyComponent { onClick() { } }`;
+      addCode(code, (fileName, content) => {
+        const diagnostics = ngService.getDiagnostics(fileName);
+        includeDiagnostic(
+            diagnostics, 'Unexpected callable expression. Expected a method call', 'onClick',
+            content);
+      });
+    });
+
+    // #13412
+    it('should not report an error for using undefined', () => {
+      const code =
+          ` @Component({template: \`<div *ngIf="something === undefined"></div>\`}) export class MyComponent { something = 'foo'; }})`;
+      addCode(code, fileName => {
+        const diagnostics = ngService.getDiagnostics(fileName);
+        onlyModuleDiagnostics(diagnostics);
+      });
+    });
+
+    // Issue #13326
+    it('should report a narrow span for invalid pipes', () => {
+      const code =
+          ` @Component({template: '<p> Using an invalid pipe {{data | dat}} </p>'}) export class MyComponent { data = 'some data'; }`;
+      addCode(code, fileName => {
+        const diagnostic =
+            ngService.getDiagnostics(fileName).filter(d => d.message.indexOf('pipe') > 0)[0];
+        expect(diagnostic).not.toBeUndefined();
+        expect(diagnostic.span.end - diagnostic.span.start).toBeLessThan(11);
+      });
+    });
+
     function addCode(code: string, cb: (fileName: string, content?: string) => void) {
       const fileName = '/app/app.component.ts';
       const originalContent = mockHost.getFileContent(fileName);
       const newContent = originalContent + code;
       mockHost.override(fileName, originalContent + code);
+      ngHost.updateAnalyzedModules();
       try {
         cb(fileName, newContent);
       } finally {
@@ -130,6 +179,13 @@ describe('diagnostics', () => {
     function onlyModuleDiagnostics(diagnostics: Diagnostics) {
       // Expect only the 'MyComponent' diagnostic
       expect(diagnostics.length).toBe(1);
+      if (diagnostics.length > 1) {
+        for (const diagnostic of diagnostics) {
+          if (diagnostic.message.indexOf('MyComponent') >= 0) continue;
+          console.error(`(${diagnostic.span.start}:${diagnostic.span.end}): ${diagnostic.message}`);
+        }
+        return;
+      }
       expect(diagnostics[0].message.indexOf('MyComponent') >= 0).toBeTruthy();
     }
   });

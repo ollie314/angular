@@ -175,6 +175,12 @@ export function main() {
       expect(data['keyframes']).toEqual([{opacity: '0.5'}, {opacity: '1'}]);
     });
 
+    it('should allow the player to be destroyed before it is initialized', () => {
+      const elm = el('<div></div>');
+      const player = new ExtendedWebAnimationsPlayer(elm, [], {});
+      expect(() => { player.destroy(); }).not.toThrowError();
+    });
+
     describe('previousStyle', () => {
       it('should merge keyframe styles based on the previous styles passed in when the player has finished its operation',
          () => {
@@ -199,32 +205,6 @@ export function main() {
            expect(data['keyframes']).toEqual([
              {width: '100px', height: '666px', opacity: 0, offset: 0},
              {width: '0px', height: '0px', opacity: 1, offset: 1}
-           ]);
-         });
-
-      it('should allow previous styles to be merged into the starting keyframe of the animation that were not apart of the animation to begin with',
-         () => {
-           if (!getDOM().supportsWebAnimation()) return;
-
-           const elm = el('<div></div>');
-           document.body.appendChild(elm);
-           elm.style.color = 'rgb(0,0,0)';
-
-           const previousStyles = {color: 'red'};
-           const previousPlayer =
-               new ExtendedWebAnimationsPlayer(elm, [previousStyles, previousStyles], {}, []);
-           previousPlayer.play();
-           previousPlayer.finish();
-
-           const player = new ExtendedWebAnimationsPlayer(
-               elm, [{opacity: '0'}, {opacity: '1'}], {duration: 1000}, [previousPlayer]);
-
-           player.init();
-
-           const data = player.domPlayer.captures['trigger'][0];
-           expect(data['keyframes']).toEqual([
-             {opacity: '0', color: 'red'},
-             {opacity: '1', color: 'rgb(0, 0, 0)'},
            ]);
          });
 
