@@ -1,6 +1,6 @@
 /**
  * @license
- * Copyright Google Inc. All Rights Reserved.
+ * Copyright Google LLC All Rights Reserved.
  *
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
@@ -8,7 +8,7 @@
 
 /* tslint:disable:no-console  */
 import {Component, Host, NgModule} from '@angular/core';
-import {AbstractControl, FormBuilder, FormGroup, FormGroupDirective, ReactiveFormsModule, Validators} from '@angular/forms';
+import {AbstractControl, FormBuilder, FormGroup, FormGroupDirective, ReactiveFormsModule, UntypedFormBuilder, UntypedFormGroup, Validators} from '@angular/forms';
 import {BrowserModule} from '@angular/platform-browser';
 import {platformBrowserDynamic} from '@angular/platform-browser-dynamic';
 
@@ -47,12 +47,14 @@ function creditCardValidator(c: AbstractControl): {[key: string]: boolean} {
     <span *ngIf="errorMessage !== null">{{errorMessage}}</span>
   `
 })
-class ShowError {
+export class ShowError {
   formDir: FormGroupDirective;
   controlPath: string;
   errorTypes: string[];
 
-  constructor(@Host() formDir: FormGroupDirective) { this.formDir = formDir; }
+  constructor(@Host() formDir: FormGroupDirective) {
+    this.formDir = formDir;
+  }
 
   get errorMessage(): string {
     const form: FormGroup = this.formDir.form;
@@ -136,11 +138,11 @@ class ShowError {
     </form>
   `
 })
-class ReactiveForms {
-  form: FormGroup;
+export class ReactiveForms {
+  form: UntypedFormGroup;
   countries = ['US', 'Canada'];
 
-  constructor(fb: FormBuilder) {
+  constructor(fb: UntypedFormBuilder) {
     this.form = fb.group({
       'firstName': ['', Validators.required],
       'middleName': [''],
@@ -164,9 +166,7 @@ class ReactiveForms {
   declarations: [ShowError, ReactiveForms],
   imports: [BrowserModule, ReactiveFormsModule]
 })
-class ExampleModule {
+export class ExampleModule {
 }
 
-export function main() {
-  platformBrowserDynamic().bootstrapModule(ExampleModule);
-}
+platformBrowserDynamic().bootstrapModule(ExampleModule);
