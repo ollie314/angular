@@ -17,7 +17,6 @@ import {IndexingContext} from '../../indexer';
 import {PerfEvent, PerfRecorder} from '../../perf';
 import {ClassDeclaration, DeclarationNode, Decorator, isNamedClassDeclaration, ReflectionHost} from '../../reflection';
 import {ProgramTypeCheckAdapter, TypeCheckContext} from '../../typecheck/api';
-import {ExtendedTemplateChecker} from '../../typecheck/extended/api';
 import {getSourceFile} from '../../util/src/typescript';
 import {Xi18nContext} from '../../xi18n';
 
@@ -132,7 +131,10 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
     // type of 'void', so `undefined` is used instead.
     const promises: Promise<void>[] = [];
 
-    const priorWork = this.incrementalBuild.priorAnalysisFor(sf);
+    // Local compilation does not support incremental build.
+    const priorWork = (this.compilationMode !== CompilationMode.LOCAL) ?
+        this.incrementalBuild.priorAnalysisFor(sf) :
+        null;
     if (priorWork !== null) {
       this.perf.eventCount(PerfEvent.SourceFileReuseAnalysis);
 
@@ -197,7 +199,8 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
   }
 
   /**
-   * Import a `ClassRecord` from a previous compilation.
+   * Import a `ClassRecord` from a previous compilation (only to be used in global compilation
+   * modes)
    *
    * Traits from the `ClassRecord` have accurate metadata, but the `handler` is from the old program
    * and needs to be updated (matching is done by name). A new pending trait is created and then
@@ -255,10 +258,19 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
     let record: ClassRecord|null = this.recordFor(clazz);
     let foundTraits: PendingTrait<unknown, unknown, SemanticSymbol|null, unknown>[] = [];
 
+    // A set to track the non-Angular decorators in local compilation mode. An error will be issued
+    // if non-Angular decorators is found in local compilation mode.
+    const nonNgDecoratorsInLocalMode =
+        this.compilationMode === CompilationMode.LOCAL ? new Set(decorators) : null;
+
     for (const handler of this.handlers) {
       const result = handler.detect(clazz, decorators);
       if (result === undefined) {
         continue;
+      }
+
+      if (nonNgDecoratorsInLocalMode !== null && result.decorator !== null) {
+        nonNgDecoratorsInLocalMode.delete(result.decorator);
       }
 
       const isPrimaryHandler = handler.precedence === HandlerPrecedence.PRIMARY;
@@ -326,6 +338,23 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
         record.traits.push(trait);
         record.hasPrimaryHandler = record.hasPrimaryHandler || isPrimaryHandler;
       }
+    }
+
+    if (nonNgDecoratorsInLocalMode !== null && nonNgDecoratorsInLocalMode.size > 0 &&
+        record !== null && record.metaDiagnostics === null) {
+      // Custom decorators found in local compilation mode! In this mode we don't support custom
+      // decorators yet. But will eventually do (b/320536434). For now a temporary error is thrown.
+      record.metaDiagnostics = [...nonNgDecoratorsInLocalMode].map(
+          decorator => ({
+            category: ts.DiagnosticCategory.Error,
+            code: Number('-99' + ErrorCode.DECORATOR_UNEXPECTED),
+            file: getSourceFile(clazz),
+            start: decorator.node.getStart(),
+            length: decorator.node.getWidth(),
+            messageText:
+                'In local compilation mode, Angular does not support custom decorators. Ensure all class decorators are from Angular.',
+          }));
+      record.traits = foundTraits = [];
     }
 
     return foundTraits.length > 0 ? foundTraits : null;
@@ -473,7 +502,7 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
    * `ts.SourceFile`.
    */
   typeCheck(sf: ts.SourceFile, ctx: TypeCheckContext): void {
-    if (!this.fileToClasses.has(sf)) {
+    if (!this.fileToClasses.has(sf) || this.compilationMode === CompilationMode.LOCAL) {
       return;
     }
 
@@ -492,8 +521,15 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
     }
   }
 
-  extendedTemplateCheck(sf: ts.SourceFile, extendedTemplateChecker: ExtendedTemplateChecker):
-      ts.Diagnostic[] {
+  runAdditionalChecks(
+      sf: ts.SourceFile,
+      check:
+          (clazz: ts.ClassDeclaration,
+           handler: DecoratorHandler<unknown, unknown, SemanticSymbol|null, unknown>) =>
+              ts.Diagnostic[] | null): ts.Diagnostic[] {
+    if (this.compilationMode === CompilationMode.LOCAL) {
+      return [];
+    }
     const classes = this.fileToClasses.get(sf);
     if (classes === undefined) {
       return [];
@@ -506,10 +542,10 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
       }
       const record = this.classes.get(clazz)!;
       for (const trait of record.traits) {
-        if (trait.handler.extendedTemplateCheck === undefined) {
-          continue;
+        const result = check(clazz, trait.handler);
+        if (result !== null) {
+          diagnostics.push(...result);
         }
-        diagnostics.push(...trait.handler.extendedTemplateCheck(clazz, extendedTemplateChecker));
       }
     }
     return diagnostics;
@@ -554,7 +590,9 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
   }
 
   updateResources(clazz: DeclarationNode): void {
-    if (!this.reflector.isClass(clazz) || !this.classes.has(clazz)) {
+    // Local compilation does not support incremental
+    if (this.compilationMode === CompilationMode.LOCAL || !this.reflector.isClass(clazz) ||
+        !this.classes.has(clazz)) {
       return;
     }
     const record = this.classes.get(clazz)!;
@@ -579,23 +617,31 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
     let res: CompileResult[] = [];
 
     for (const trait of record.traits) {
+      let compileRes: CompileResult|CompileResult[];
+
       if (trait.state !== TraitState.Resolved || containsErrors(trait.analysisDiagnostics) ||
           containsErrors(trait.resolveDiagnostics)) {
         // Cannot compile a trait that is not resolved, or had any errors in its declaration.
         continue;
       }
 
-      // `trait.resolution` is non-null asserted here because TypeScript does not recognize that
-      // `Readonly<unknown>` is nullable (as `unknown` itself is nullable) due to the way that
-      // `Readonly` works.
-
-      let compileRes: CompileResult|CompileResult[];
-      if (this.compilationMode === CompilationMode.PARTIAL &&
-          trait.handler.compilePartial !== undefined) {
-        compileRes = trait.handler.compilePartial(clazz, trait.analysis, trait.resolution!);
-      } else {
+      if (this.compilationMode === CompilationMode.LOCAL) {
+        // `trait.analysis` is non-null asserted here because TypeScript does not recognize that
+        // `Readonly<unknown>` is nullable (as `unknown` itself is nullable) due to the way that
+        // `Readonly` works.
         compileRes =
-            trait.handler.compileFull(clazz, trait.analysis, trait.resolution!, constantPool);
+            trait.handler.compileLocal(clazz, trait.analysis!, trait.resolution!, constantPool);
+      } else {
+        // `trait.resolution` is non-null asserted below because TypeScript does not recognize that
+        // `Readonly<unknown>` is nullable (as `unknown` itself is nullable) due to the way that
+        // `Readonly` works.
+        if (this.compilationMode === CompilationMode.PARTIAL &&
+            trait.handler.compilePartial !== undefined) {
+          compileRes = trait.handler.compilePartial(clazz, trait.analysis, trait.resolution!);
+        } else {
+          compileRes =
+              trait.handler.compileFull(clazz, trait.analysis, trait.resolution!, constantPool);
+        }
       }
 
       const compileMatchRes = compileRes;
@@ -629,7 +675,8 @@ export class TraitCompiler implements ProgramTypeCheckAdapter {
     const decorators: ts.Decorator[] = [];
 
     for (const trait of record.traits) {
-      if (trait.state !== TraitState.Resolved) {
+      // In global compilation mode skip the non-resolved traits.
+      if (this.compilationMode !== CompilationMode.LOCAL && trait.state !== TraitState.Resolved) {
         continue;
       }
 

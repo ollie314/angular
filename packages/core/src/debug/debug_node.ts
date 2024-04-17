@@ -110,9 +110,9 @@ export class DebugNode {
 /**
  * @publicApi
  *
- * @see [Component testing scenarios](guide/testing-components-scenarios)
- * @see [Basics of testing components](guide/testing-components-basics)
- * @see [Testing utility APIs](guide/testing-utility-apis)
+ * @see [Component testing scenarios](guide/testing/components-scenarios)
+ * @see [Basics of testing components](guide/testing/components-basics)
+ * @see [Testing utility APIs](guide/testing/utility-apis)
  */
 export class DebugElement extends DebugNode {
   constructor(nativeNode: Element) {
@@ -178,9 +178,10 @@ export class DebugElement extends DebugNode {
   /**
    *  A map of attribute names to attribute values for an element.
    */
+  // TODO: replace null by undefined in the return type
   get attributes(): {[key: string]: string|null} {
     const attributes: {[key: string]: string|null} = {};
-    const element = this.nativeElement;
+    const element = this.nativeElement as Element | undefined;
 
     if (!element) {
       return attributes;
@@ -233,16 +234,11 @@ export class DebugElement extends DebugNode {
 
   /**
    * The inline styles of the DOM element.
-   *
-   * Will be `null` if there is no `style` property on the underlying DOM element.
-   *
-   * @see [ElementCSSInlineStyle](https://developer.mozilla.org/en-US/docs/Web/API/ElementCSSInlineStyle/style)
    */
+  // TODO: replace null by undefined in the return type
   get styles(): {[key: string]: string|null} {
-    if (this.nativeElement && (this.nativeElement as HTMLElement).style) {
-      return (this.nativeElement as HTMLElement).style as {[key: string]: any};
-    }
-    return {};
+    const element = this.nativeElement as HTMLElement | null;
+    return (element?.style ?? {}) as {[key: string]: string | null};
   }
 
   /**
@@ -335,7 +331,7 @@ export class DebugElement extends DebugNode {
    * @param eventName The name of the event to trigger
    * @param eventObj The _event object_ expected by the handler
    *
-   * @see [Testing components scenarios](guide/testing-components-scenarios#trigger-event-handler)
+   * @see [Testing components scenarios](guide/testing/components-scenarios#trigger-event-handler)
    */
   triggerEventHandler(eventName: string, eventObj?: any): void {
     const node = this.nativeNode as any;
@@ -673,6 +669,4 @@ export function removeDebugNodeFromIndex(node: DebugNode) {
  *
  * @publicApi
  */
-export interface Predicate<T> {
-  (value: T): boolean;
-}
+export type Predicate<T> = (value: T) => boolean;

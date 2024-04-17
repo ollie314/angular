@@ -9,7 +9,7 @@
 import ts from 'typescript';
 
 import {TypeScriptReflectionHost} from '../src/ngtsc/reflection';
-import {getDownlevelDecoratorsTransform} from '../src/transformers/downlevel_decorators_transform/index';
+import {getDownlevelDecoratorsTransform} from '../src/transformers/jit_transforms/index';
 
 import {MockAotContext, MockCompilerHost} from './mocks';
 
@@ -262,7 +262,7 @@ describe('downlevel decorator transform', () => {
 
     expect(diagnostics.length).toBe(0);
     expect(output).toContain(dedent`
-      let Wrapper = exports.Wrapper = class Wrapper {
+      let Wrapper = class Wrapper {
         constructor(y) {
           let ShouldBeProcessed = class ShouldBeProcessed {
             constructor(x) { }
@@ -274,7 +274,9 @@ describe('downlevel decorator transform', () => {
             (0, core_1.Injectable)()
           ], ShouldBeProcessed);
         }
-      };`);
+      };
+      exports.Wrapper = Wrapper;
+    `);
   });
 
   // Angular is not concerned with type information for decorated class members. Instead,
@@ -574,13 +576,14 @@ describe('downlevel decorator transform', () => {
 
     expect(diagnostics.length).toBe(0);
     expect(output).toContain(dedent`
-       let MyDir = exports.MyDir = MyDir_1 = class MyDir {
+       let MyDir = class MyDir {
        constructor(parentDir) { }
        };
+       exports.MyDir = MyDir;
        MyDir.ctorParameters = () => [
-         { type: MyDir, decorators: [{ type: core_1.Optional }, { type: core_1.SkipSelf }, { type: core_1.Inject, args: [MyDir_1,] }] }
+         { type: MyDir, decorators: [{ type: core_1.Optional }, { type: core_1.SkipSelf }, { type: core_1.Inject, args: [MyDir,] }] }
        ];
-       exports.MyDir = MyDir = MyDir_1 = tslib_1.__decorate([
+       exports.MyDir = MyDir = tslib_1.__decorate([
         (0, core_1.Directive)()
        ], MyDir);
      `);

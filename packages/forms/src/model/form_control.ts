@@ -6,6 +6,8 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
+import {ɵWritable as Writable} from '@angular/core';
+
 import {AsyncValidatorFn, ValidatorFn} from '../directives/validators';
 import {removeListItem} from '../util';
 
@@ -60,7 +62,7 @@ export interface FormControlOptions extends AbstractControlOptions {
  * See [usage examples below](#usage-notes).
  *
  * @see {@link AbstractControl}
- * @see [Reactive Forms Guide](guide/reactive-forms)
+ * @see [Reactive Forms Guide](guide/forms/reactive-forms)
  * @see [Usage Notes](#usage-notes)
  *
  * @publicApi
@@ -456,7 +458,7 @@ export const FormControl: ɵFormControlCtor =
         emitModelToViewChange?: boolean,
         emitViewToModelChange?: boolean
       } = {}): void {
-        (this as {value: TValue}).value = this._pendingValue = value;
+        (this as Writable<this>).value = this._pendingValue = value;
         if (this._onChange.length && options.emitModelToViewChange !== false) {
           this._onChange.forEach(
               (changeFn) => changeFn(this.value, options.emitViewToModelChange !== false));
@@ -532,11 +534,11 @@ export const FormControl: ɵFormControlCtor =
 
       private _applyFormState(formState: FormControlState<TValue>|TValue) {
         if (isFormControlState(formState)) {
-          (this as {value: TValue}).value = this._pendingValue = formState.value;
+          (this as Writable<this>).value = this._pendingValue = formState.value;
           formState.disabled ? this.disable({onlySelf: true, emitEvent: false}) :
                                this.enable({onlySelf: true, emitEvent: false});
         } else {
-          (this as {value: TValue}).value = this._pendingValue = formState;
+          (this as Writable<this>).value = this._pendingValue = formState;
         }
       }
     });

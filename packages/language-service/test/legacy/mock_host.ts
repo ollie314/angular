@@ -8,7 +8,7 @@
 
 import {NgCompilerOptions} from '@angular/compiler-cli/src/ngtsc/core/api';
 import {join} from 'path';
-import ts from 'typescript/lib/tsserverlibrary';
+import ts from 'typescript';
 
 import {isTypeScriptFile} from '../../src/utils';
 
@@ -31,7 +31,7 @@ const logger: ts.server.Logger = {
       },
 };
 
-export const TEST_SRCDIR = process.env.TEST_SRCDIR!;
+export const TEST_SRCDIR = process.env['TEST_SRCDIR']!;
 export const PROJECT_DIR =
     join(TEST_SRCDIR, 'angular', 'packages', 'language-service', 'test', 'legacy', 'project');
 export const TSCONFIG = join(PROJECT_DIR, 'tsconfig.json');
@@ -275,7 +275,7 @@ export class MockService {
 }
 
 /**
- * Replace at most one occurence that matches `regex` in the specified
+ * Replace at most one occurrence that matches `regex` in the specified
  * `searchText` with the specified `replaceText`. Throw an error if there is
  * more than one occurrence.
  */

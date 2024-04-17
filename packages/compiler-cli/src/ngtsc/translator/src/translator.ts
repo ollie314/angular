@@ -21,6 +21,7 @@ const BINARY_OPERATORS = new Map<o.BinaryOperator, BinaryOperator>([
   [o.BinaryOperator.Bigger, '>'],
   [o.BinaryOperator.BiggerEquals, '>='],
   [o.BinaryOperator.BitwiseAnd, '&'],
+  [o.BinaryOperator.BitwiseOr, '|'],
   [o.BinaryOperator.Divide, '/'],
   [o.BinaryOperator.Equals, '=='],
   [o.BinaryOperator.Identical, '==='],
@@ -45,15 +46,16 @@ export interface TranslatorOptions<TExpression> {
   annotateForClosureCompiler?: boolean;
 }
 
-export class ExpressionTranslatorVisitor<TStatement, TExpression> implements o.ExpressionVisitor,
-                                                                             o.StatementVisitor {
+export class ExpressionTranslatorVisitor<TFile, TStatement, TExpression> implements
+    o.ExpressionVisitor, o.StatementVisitor {
   private downlevelTaggedTemplates: boolean;
   private downlevelVariableDeclarations: boolean;
   private recordWrappedNode: RecordWrappedNodeFn<TExpression>;
 
   constructor(
       private factory: AstFactory<TStatement, TExpression>,
-      private imports: ImportGenerator<TExpression>, options: TranslatorOptions<TExpression>) {
+      private imports: ImportGenerator<TFile, TExpression>, private contextFile: TFile,
+      options: TranslatorOptions<TExpression>) {
     this.downlevelTaggedTemplates = options.downlevelTaggedTemplates === true;
     this.downlevelVariableDeclarations = options.downlevelVariableDeclarations === true;
     this.recordWrappedNode = options.recordWrappedNode || (() => {});
@@ -209,11 +211,11 @@ export class ExpressionTranslatorVisitor<TStatement, TExpression> implements o.E
   private createES5TaggedTemplateFunctionCall(
       tagHandler: TExpression, {elements, expressions}: TemplateLiteral<TExpression>): TExpression {
     // Ensure that the `__makeTemplateObject()` helper has been imported.
-    const {moduleImport, symbol} =
-        this.imports.generateNamedImport('tslib', '__makeTemplateObject');
-    const __makeTemplateObjectHelper = (moduleImport === null) ?
-        this.factory.createIdentifier(symbol) :
-        this.factory.createPropertyAccess(moduleImport, symbol);
+    const __makeTemplateObjectHelper = this.imports.addImport({
+      exportModuleSpecifier: 'tslib',
+      exportSymbolName: '__makeTemplateObject',
+      requestedFile: this.contextFile,
+    });
 
     // Collect up the cooked and raw strings into two separate arrays.
     const cooked: TExpression[] = [];
@@ -243,20 +245,21 @@ export class ExpressionTranslatorVisitor<TStatement, TExpression> implements o.E
       if (ast.value.moduleName === null) {
         throw new Error('Invalid import without name nor moduleName');
       }
-      return this.imports.generateNamespaceImport(ast.value.moduleName);
+      return this.imports.addImport({
+        exportModuleSpecifier: ast.value.moduleName,
+        exportSymbolName: null,
+        requestedFile: this.contextFile,
+      });
     }
     // If a moduleName is specified, this is a normal import. If there's no module name, it's a
     // reference to a global/ambient symbol.
     if (ast.value.moduleName !== null) {
       // This is a normal import. Find the imported module.
-      const {moduleImport, symbol} =
-          this.imports.generateNamedImport(ast.value.moduleName, ast.value.name);
-      if (moduleImport === null) {
-        // The symbol was ambient after all.
-        return this.factory.createIdentifier(symbol);
-      } else {
-        return this.factory.createPropertyAccess(moduleImport, symbol);
-      }
+      return this.imports.addImport({
+        exportModuleSpecifier: ast.value.moduleName,
+        exportSymbolName: ast.value.name,
+        requestedFile: this.contextFile,
+      });
     } else {
       // The symbol is ambient, so just reference it.
       return this.factory.createIdentifier(ast.value.name);
@@ -297,6 +300,10 @@ export class ExpressionTranslatorVisitor<TStatement, TExpression> implements o.E
         ast.falseCase!.visitExpression(this, context));
   }
 
+  visitDynamicImportExpr(ast: o.DynamicImportExpr, context: any) {
+    return this.factory.createDynamicImport(ast.url);
+  }
+
   visitNotExpr(ast: o.NotExpr, context: Context): TExpression {
     return this.factory.createUnaryExpression('!', ast.condition.visitExpression(this, context));
   }
@@ -305,6 +312,14 @@ export class ExpressionTranslatorVisitor<TStatement, TExpression> implements o.E
     return this.factory.createFunctionExpression(
         ast.name ?? null, ast.params.map(param => param.name),
         this.factory.createBlock(this.visitStatements(ast.statements, context)));
+  }
+
+  visitArrowFunctionExpr(ast: o.ArrowFunctionExpr, context: any) {
+    return this.factory.createArrowFunctionExpression(
+        ast.params.map(param => param.name),
+        Array.isArray(ast.body) ?
+            this.factory.createBlock(this.visitStatements(ast.body, context)) :
+            ast.body.visitExpression(this, context));
   }
 
   visitBinaryOperatorExpr(ast: o.BinaryOperatorExpr, context: Context): TExpression {

@@ -16,6 +16,7 @@ import {ClassDeclaration, Decorator, ReflectionHost} from '../../reflection';
 import {ImportManager} from '../../translator';
 import {TypeCheckContext} from '../../typecheck/api';
 import {ExtendedTemplateChecker} from '../../typecheck/extended/api';
+import {TemplateSemanticsChecker} from '../../typecheck/template_semantics/api/api';
 import {Xi18nContext} from '../../xi18n';
 
 /**
@@ -175,12 +176,16 @@ export interface DecoratorHandler<D, A, S extends SemanticSymbol|null, R> {
       (component: ts.ClassDeclaration, extendedTemplateChecker: ExtendedTemplateChecker):
           ts.Diagnostic[];
 
+  templateSemanticsCheck?
+      (component: ts.ClassDeclaration, templateSemanticsChecker: TemplateSemanticsChecker):
+          ts.Diagnostic[];
+
   /**
    * Generate a description of the field which should be added to the class, including any
    * initialization code to be generated.
    *
-   * If the compilation mode is configured as partial, and an implementation of `compilePartial` is
-   * provided, then this method is not called.
+   * If the compilation mode is configured as other than full but an implementation of the
+   * corresponding method is not provided, then this method is called as a fallback.
    */
   compileFull(
       node: ClassDeclaration, analysis: Readonly<A>, resolution: Readonly<R>,
@@ -197,6 +202,14 @@ export interface DecoratorHandler<D, A, S extends SemanticSymbol|null, R> {
   compilePartial?
       (node: ClassDeclaration, analysis: Readonly<A>, resolution: Readonly<R>): CompileResult
       |CompileResult[];
+
+  /**
+   * Generates code based on each individual source file without using its
+   * dependencies (suitable for local dev edit/refresh workflow)
+   */
+  compileLocal(
+      node: ClassDeclaration, analysis: Readonly<A>, resolution: Readonly<Partial<R>>,
+      constantPool: ConstantPool): CompileResult|CompileResult[];
 }
 
 /**
@@ -241,6 +254,7 @@ export interface CompileResult {
   initializer: Expression|null;
   statements: Statement[];
   type: Type;
+  deferrableImports: Set<ts.ImportDeclaration>|null;
 }
 
 export interface ResolveResult<R> {

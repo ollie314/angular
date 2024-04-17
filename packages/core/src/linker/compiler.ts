@@ -27,8 +27,6 @@ import {NgModuleFactory} from './ng_module_factory';
  *
  * @deprecated
  * Ivy JIT mode doesn't require accessing this symbol.
- * See [JIT API changes due to ViewEngine deprecation](guide/deprecations#jit-api-changes) for
- * additional context.
  */
 export class ModuleWithComponentFactories<T> {
   constructor(
@@ -49,8 +47,6 @@ export class ModuleWithComponentFactories<T> {
  *
  * @deprecated
  * Ivy JIT mode doesn't require accessing this symbol.
- * See [JIT API changes due to ViewEngine deprecation](guide/deprecations#jit-api-changes) for
- * additional context.
  */
 @Injectable({providedIn: 'root'})
 export class Compiler {
@@ -114,22 +110,11 @@ export class Compiler {
 /**
  * Options for creating a compiler.
  *
- * Note: the `useJit` and `missingTranslation` config options are not used in Ivy, passing them has
- * no effect. Those config options are deprecated since v13.
- *
  * @publicApi
  */
 export type CompilerOptions = {
-  /**
-   * @deprecated not used at all in Ivy, providing this config option has no effect.
-   */
-  useJit?: boolean,
   defaultEncapsulation?: ViewEncapsulation,
   providers?: StaticProvider[],
-  /**
-   * @deprecated not used at all in Ivy, providing this config option has no effect.
-   */
-  missingTranslation?: MissingTranslationStrategy,
   preserveWhitespaces?: boolean,
 };
 
@@ -138,7 +123,8 @@ export type CompilerOptions = {
  *
  * @publicApi
  */
-export const COMPILER_OPTIONS = new InjectionToken<CompilerOptions[]>('compilerOptions');
+export const COMPILER_OPTIONS =
+    new InjectionToken<CompilerOptions[]>(ngDevMode ? 'compilerOptions' : '');
 
 /**
  * A factory for creating a Compiler
@@ -147,8 +133,6 @@ export const COMPILER_OPTIONS = new InjectionToken<CompilerOptions[]>('compilerO
  *
  * @deprecated
  * Ivy JIT mode doesn't require accessing this symbol.
- * See [JIT API changes due to ViewEngine deprecation](guide/deprecations#jit-api-changes) for
- * additional context.
  */
 export abstract class CompilerFactory {
   abstract createCompiler(options?: CompilerOptions[]): Compiler;

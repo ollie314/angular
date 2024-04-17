@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {assertInInjectionContext, DestroyRef, effect, EffectRef, inject, Injector, Signal, untracked} from '@angular/core';
+import {assertInInjectionContext, DestroyRef, effect, inject, Injector, Signal, untracked} from '@angular/core';
 import {Observable, ReplaySubject} from 'rxjs';
 
 /**
@@ -18,7 +18,8 @@ export interface ToObservableOptions {
   /**
    * The `Injector` to use when creating the underlying `effect` which watches the signal.
    *
-   * If this isn't specified, the current injection context will be used.
+   * If this isn't specified, the current [injection context](guide/di/dependency-injection-context)
+   * will be used.
    */
   injector?: Injector;
 }

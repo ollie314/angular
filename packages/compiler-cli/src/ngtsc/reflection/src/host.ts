@@ -89,6 +89,15 @@ export enum ClassMemberKind {
   Method,
 }
 
+/** Possible access levels of a class member. */
+export enum ClassMemberAccessLevel {
+  PublicWritable,
+  PublicReadonly,
+  Protected,
+  Private,
+  EcmaScriptPrivate,
+}
+
 /**
  * A member of a class, such as a property, method, or constructor.
  */
@@ -103,6 +112,9 @@ export interface ClassMember {
    */
   kind: ClassMemberKind;
 
+  /** Access level describing the class member modifiers. */
+  accessLevel: ClassMemberAccessLevel;
+
   /**
    * TypeScript `ts.TypeNode` representing the type of the member, or `null` if not present or
    * applicable.
@@ -115,13 +127,13 @@ export interface ClassMember {
   name: string;
 
   /**
-   * TypeScript `ts.Identifier` or `ts.StringLiteral` representing the name of the member, or `null`
-   * if no such node is present.
+   * TypeScript `ts.Identifier`, `ts.PrivateIdentifier`, or `ts.StringLiteral` representing the
+   * name of the member, or `null` if no such node is present.
    *
    * The `nameNode` is useful in writing references to this member that will be correctly source-
    * mapped back to the original file.
    */
-  nameNode: ts.Identifier|ts.StringLiteral|null;
+  nameNode: ts.Identifier|ts.PrivateIdentifier|ts.StringLiteral|null;
 
   /**
    * TypeScript `ts.Expression` which represents the value of the member.
@@ -238,7 +250,8 @@ export interface ImportedTypeValueReference {
    */
   nestedPath: string[]|null;
 
-  valueDeclaration: DeclarationNode;
+  // This field can be null in local compilation mode when resolving is not possible.
+  valueDeclaration: DeclarationNode|null;
 }
 
 /**
@@ -466,12 +479,24 @@ export interface Import {
    * This could either be an absolute module name (@angular/core for example) or a relative path.
    */
   from: string;
+
+  /**
+   * TypeScript node that represents this import.
+   */
+  node: ts.ImportDeclaration;
 }
 
 /**
  * A type that is used to identify a declaration.
  */
 export type DeclarationNode = ts.Declaration;
+
+export type AmbientImport = {
+  __brand: 'AmbientImport'
+};
+
+/** Indicates that a declaration is referenced through an ambient type. */
+export const AmbientImport = {} as AmbientImport;
 
 /**
  * The declaration of a symbol, along with information about how it was imported into the
@@ -483,7 +508,7 @@ export interface Declaration<T extends ts.Declaration = ts.Declaration> {
    * was imported via an absolute module (even through a chain of re-exports). If the symbol is part
    * of the application and was not imported from an absolute path, this will be `null`.
    */
-  viaModule: string|null;
+  viaModule: string|AmbientImport|null;
 
   /**
    * TypeScript reference to the declaration itself, if one exists.

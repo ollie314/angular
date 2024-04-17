@@ -21,7 +21,7 @@ import {AsyncValidator, AsyncValidatorFn, Validator, ValidatorFn} from '../valid
  * Token to provide to turn off the ngModel warning on formControl and formControlName.
  */
 export const NG_MODEL_WITH_FORM_CONTROL_WARNING =
-    new InjectionToken('NgModelWithFormControlWarning');
+    new InjectionToken(ngDevMode ? 'NgModelWithFormControlWarning' : '');
 
 const formControlBinding: Provider = {
   provide: NgControl,
@@ -35,9 +35,8 @@ const formControlBinding: Provider = {
  * Note that support for using the `ngModel` input property and `ngModelChange` event with reactive
  * form directives was deprecated in Angular v6 and is scheduled for removal in
  * a future version of Angular.
- * For details, see [Deprecated features](guide/deprecations#ngmodel-with-reactive-forms).
  *
- * @see [Reactive Forms Guide](guide/reactive-forms)
+ * @see [Reactive Forms Guide](guide/forms/reactive-forms)
  * @see {@link FormControl}
  * @see {@link AbstractControl}
  *

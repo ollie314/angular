@@ -7,21 +7,31 @@
  */
 
 import {DOCUMENT, LocationChangeEvent, LocationChangeListener, PlatformLocation, ɵgetDOM as getDOM} from '@angular/common';
-import {Inject, Injectable, Optional} from '@angular/core';
+import {Inject, Injectable, Optional, ɵWritable as Writable} from '@angular/core';
 import {Subject} from 'rxjs';
-import * as url from 'url';
 
 import {INITIAL_CONFIG, PlatformConfig} from './tokens';
 
-function parseUrl(urlStr: string) {
-  const parsedUrl = url.parse(urlStr);
+const RESOLVE_PROTOCOL = 'resolve:';
+
+function parseUrl(urlStr: string): {
+  hostname: string,
+  protocol: string,
+  port: string,
+  pathname: string,
+  search: string,
+  hash: string,
+} {
+  const {hostname, protocol, port, pathname, search, hash} =
+      new URL(urlStr, RESOLVE_PROTOCOL + '//');
+
   return {
-    hostname: parsedUrl.hostname || '',
-    protocol: parsedUrl.protocol || '',
-    port: parsedUrl.port || '',
-    pathname: parsedUrl.pathname || '',
-    search: parsedUrl.search || '',
-    hash: parsedUrl.hash || '',
+    hostname,
+    protocol: protocol === RESOLVE_PROTOCOL ? '' : protocol,
+    port,
+    pathname,
+    search,
+    hash,
   };
 }
 
@@ -56,15 +66,6 @@ export class ServerPlatformLocation implements PlatformLocation {
       this.hash = url.hash;
       this.href = _doc.location.href;
     }
-    if (config.useAbsoluteUrl) {
-      if (!config.baseUrl) {
-        throw new Error(`"PlatformConfig.baseUrl" must be set if "useAbsoluteUrl" is true`);
-      }
-      const url = parseUrl(config.baseUrl);
-      this.protocol = url.protocol;
-      this.hostname = url.hostname;
-      this.port = url.port;
-    }
   }
 
   getBaseHrefFromDOM(): string {
@@ -91,7 +92,7 @@ export class ServerPlatformLocation implements PlatformLocation {
       // Don't fire events if the hash has not changed.
       return;
     }
-    (this as {hash: string}).hash = value;
+    (this as Writable<this>).hash = value;
     const newUrl = this.url;
     queueMicrotask(
         () => this._hashUpdate.next(
@@ -101,8 +102,8 @@ export class ServerPlatformLocation implements PlatformLocation {
   replaceState(state: any, title: string, newUrl: string): void {
     const oldUrl = this.url;
     const parsedUrl = parseUrl(newUrl);
-    (this as {pathname: string}).pathname = parsedUrl.pathname;
-    (this as {search: string}).search = parsedUrl.search;
+    (this as Writable<this>).pathname = parsedUrl.pathname;
+    (this as Writable<this>).search = parsedUrl.search;
     this.setHash(parsedUrl.hash, oldUrl);
   }
 

@@ -34,12 +34,12 @@ export abstract class ComponentRef<C> {
   abstract setInput(name: string, value: unknown): void;
 
   /**
-   * The host or anchor [element](guide/glossary#element) for this component instance.
+   * The host or anchor element for this component instance.
    */
   abstract get location(): ElementRef;
 
   /**
-   * The [dependency injector](guide/glossary#injector) for this component instance.
+   * The dependency injector for this component instance.
    */
   abstract get injector(): Injector;
 
@@ -49,7 +49,7 @@ export abstract class ComponentRef<C> {
   abstract get instance(): C;
 
   /**
-   * The [host view](guide/glossary#view-hierarchy) defined by the template
+   * The host view defined by the template
    * for this component instance.
    */
   abstract get hostView(): ViewRef;
@@ -82,8 +82,6 @@ export abstract class ComponentRef<C> {
  * Base class for a factory that can create a component dynamically.
  * Instantiate a factory for a given type of component with `resolveComponentFactory()`.
  * Use the resulting `ComponentFactory.create()` method to create a component of that type.
- *
- * @see [Dynamic Components](guide/dynamic-component-loader)
  *
  * @publicApi
  *

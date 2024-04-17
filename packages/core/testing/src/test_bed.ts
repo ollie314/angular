@@ -13,10 +13,10 @@
 /* clang-format off */
 import {
   Component,
+  ComponentRef,
   Directive,
   EnvironmentInjector,
   InjectFlags,
-  InjectionToken,
   InjectOptions,
   Injector,
   NgModule,
@@ -24,9 +24,13 @@ import {
   Pipe,
   PlatformRef,
   ProviderToken,
+  runInInjectionContext,
   Type,
   ɵconvertToBitFlags as convertToBitFlags,
+  ɵDeferBlockBehavior as DeferBlockBehavior,
+  ɵEffectScheduler as EffectScheduler,
   ɵflushModuleScopingQueueAsMuchAsPossible as flushModuleScopingQueueAsMuchAsPossible,
+  ɵgetAsyncClassMetadataFn as getAsyncClassMetadataFn,
   ɵgetUnknownElementStrictMode as getUnknownElementStrictMode,
   ɵgetUnknownPropertyStrictMode as getUnknownPropertyStrictMode,
   ɵRender3ComponentFactory as ComponentFactory,
@@ -35,14 +39,17 @@ import {
   ɵsetAllowDuplicateNgModuleIdsForTest as setAllowDuplicateNgModuleIdsForTest,
   ɵsetUnknownElementStrictMode as setUnknownElementStrictMode,
   ɵsetUnknownPropertyStrictMode as setUnknownPropertyStrictMode,
-  ɵstringify as stringify
+  ɵstringify as stringify,
+  ɵZONELESS_ENABLED as ZONELESS_ENABLED,
 } from '@angular/core';
 
 /* clang-format on */
 
-import {ComponentFixture} from './component_fixture';
+
+
+import {ComponentFixture, PseudoApplicationComponentFixture, ScheduledComponentFixture} from './component_fixture';
 import {MetadataOverride} from './metadata_override';
-import {ComponentFixtureAutoDetect, ComponentFixtureNoNgZone, ModuleTeardownOptions, TEARDOWN_TESTING_MODULE_ON_DESTROY_DEFAULT, TestComponentRenderer, TestEnvironmentOptions, TestModuleMetadata, THROW_ON_UNKNOWN_ELEMENTS_DEFAULT, THROW_ON_UNKNOWN_PROPERTIES_DEFAULT} from './test_bed_common';
+import {ComponentFixtureNoNgZone, DEFER_BLOCK_DEFAULT_BEHAVIOR, ModuleTeardownOptions, TEARDOWN_TESTING_MODULE_ON_DESTROY_DEFAULT, TestComponentRenderer, TestEnvironmentOptions, TestModuleMetadata, THROW_ON_UNKNOWN_ELEMENTS_DEFAULT, THROW_ON_UNKNOWN_PROPERTIES_DEFAULT} from './test_bed_common';
 import {TestBedCompiler} from './test_bed_compiler';
 
 /**
@@ -108,7 +115,7 @@ export interface TestBed {
   /**
    * Runs the given function in the `EnvironmentInjector` context of `TestBed`.
    *
-   * @see EnvironmentInjector#runInContext
+   * @see {@link EnvironmentInjector#runInContext}
    */
   runInInjectionContext<T>(fn: () => T): T;
 
@@ -137,6 +144,14 @@ export interface TestBed {
   overrideTemplateUsingTestingModule(component: Type<any>, template: string): TestBed;
 
   createComponent<T>(component: Type<T>): ComponentFixture<T>;
+
+
+  /**
+   * Execute any pending effects.
+   *
+   * @developerPreview
+   */
+  flushEffects(): void;
 }
 
 let _nextRootElementId = 0;
@@ -187,6 +202,12 @@ export class TestBedImpl implements TestBed {
    * These options take precedence over the environment-level ones.
    */
   private _instanceTeardownOptions: ModuleTeardownOptions|undefined;
+
+  /**
+   * Defer block behavior option that specifies whether defer blocks will be triggered manually
+   * or set to play through.
+   */
+  private _instanceDeferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
 
   /**
    * "Error on unknown elements" option that has been configured at the `TestBed` instance level.
@@ -335,7 +356,7 @@ export class TestBedImpl implements TestBed {
   /**
    * Runs the given function in the `EnvironmentInjector` context of `TestBed`.
    *
-   * @see EnvironmentInjector#runInContext
+   * @see {@link EnvironmentInjector#runInContext}
    */
   static runInInjectionContext<T>(fn: () => T): T {
     return TestBedImpl.INSTANCE.runInInjectionContext(fn);
@@ -359,6 +380,10 @@ export class TestBedImpl implements TestBed {
 
   static get ngModule(): Type<any>|Type<any>[] {
     return TestBedImpl.INSTANCE.ngModule;
+  }
+
+  static flushEffects(): void {
+    return TestBedImpl.INSTANCE.flushEffects();
   }
 
   // Properties
@@ -458,6 +483,7 @@ export class TestBedImpl implements TestBed {
         this._instanceTeardownOptions = undefined;
         this._instanceErrorOnUnknownElementsOption = undefined;
         this._instanceErrorOnUnknownPropertiesOption = undefined;
+        this._instanceDeferBlockBehavior = DEFER_BLOCK_DEFAULT_BEHAVIOR;
       }
     }
     return this;
@@ -488,6 +514,7 @@ export class TestBedImpl implements TestBed {
     this._instanceTeardownOptions = moduleDef.teardown;
     this._instanceErrorOnUnknownElementsOption = moduleDef.errorOnUnknownElements;
     this._instanceErrorOnUnknownPropertiesOption = moduleDef.errorOnUnknownProperties;
+    this._instanceDeferBlockBehavior = moduleDef.deferBlockBehavior ?? DEFER_BLOCK_DEFAULT_BEHAVIOR;
     // Store the current value of the strict mode option,
     // so we can restore it later
     this._previousErrorOnUnknownElementsOption = getUnknownElementStrictMode();
@@ -533,7 +560,7 @@ export class TestBedImpl implements TestBed {
   }
 
   runInInjectionContext<T>(fn: () => T): T {
-    return this.inject(EnvironmentInjector).runInContext(fn);
+    return runInInjectionContext(this.inject(EnvironmentInjector), fn);
   }
 
   execute(tokens: any[], fn: Function, context?: any): any {
@@ -592,21 +619,33 @@ export class TestBedImpl implements TestBed {
     const rootElId = `root${_nextRootElementId++}`;
     testComponentRenderer.insertRootElement(rootElId);
 
+    if (getAsyncClassMetadataFn(type)) {
+      throw new Error(
+          `Component '${type.name}' has unresolved metadata. ` +
+          `Please call \`await TestBed.compileComponents()\` before running this test.`);
+    }
+
     const componentDef = (type as any).ɵcmp;
 
     if (!componentDef) {
       throw new Error(`It looks like '${stringify(type)}' has not been compiled.`);
     }
 
-    const noNgZone = this.inject(ComponentFixtureNoNgZone, false);
-    const autoDetect: boolean = this.inject(ComponentFixtureAutoDetect, false);
-    const ngZone: NgZone|null = noNgZone ? null : this.inject(NgZone, null);
     const componentFactory = new ComponentFactory(componentDef);
     const initComponent = () => {
       const componentRef =
-          componentFactory.create(Injector.NULL, [], `#${rootElId}`, this.testModuleRef);
-      return new ComponentFixture<any>(componentRef, ngZone, autoDetect);
+          componentFactory.create(Injector.NULL, [], `#${rootElId}`, this.testModuleRef) as
+          ComponentRef<T>;
+      return this.runInInjectionContext(() => {
+        const isZoneless = this.inject(ZONELESS_ENABLED);
+        const fixture = isZoneless ? new ScheduledComponentFixture(componentRef) :
+                                     new PseudoApplicationComponentFixture(componentRef);
+        fixture.initialize();
+        return fixture;
+      });
     };
+    const noNgZone = this.inject(ComponentFixtureNoNgZone, false);
+    const ngZone = noNgZone ? null : this.inject(NgZone, null);
     const fixture = ngZone ? ngZone.run(initComponent) : initComponent();
     this._activeFixtures.push(fixture);
     return fixture;
@@ -718,6 +757,10 @@ export class TestBedImpl implements TestBed {
         TEARDOWN_TESTING_MODULE_ON_DESTROY_DEFAULT;
   }
 
+  getDeferBlockBehavior(): DeferBlockBehavior {
+    return this._instanceDeferBlockBehavior;
+  }
+
   tearDownTestingModule() {
     // If the module ref has already been destroyed, we won't be able to get a test renderer.
     if (this._testModuleRef === null) {
@@ -740,6 +783,15 @@ export class TestBedImpl implements TestBed {
     } finally {
       testRenderer.removeAllRootElements?.();
     }
+  }
+
+  /**
+   * Execute any pending effects.
+   *
+   * @developerPreview
+   */
+  flushEffects(): void {
+    this.inject(EffectScheduler).flush();
   }
 }
 

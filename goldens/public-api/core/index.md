@@ -5,6 +5,8 @@
 ```ts
 
 import { Observable } from 'rxjs';
+import { SIGNAL } from '@angular/core/primitives/signals';
+import { SignalNode } from '@angular/core/primitives/signals';
 import { Subject } from 'rxjs';
 import { Subscription } from 'rxjs';
 
@@ -25,6 +27,31 @@ export interface AfterContentInit {
 }
 
 // @public
+export function afterNextRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
+
+// @public
+export function afterRender(callback: VoidFunction, options?: AfterRenderOptions): AfterRenderRef;
+
+// @public
+export interface AfterRenderOptions {
+    injector?: Injector;
+    phase?: AfterRenderPhase;
+}
+
+// @public
+export enum AfterRenderPhase {
+    EarlyRead = 0,
+    MixedReadWrite = 2,
+    Read = 3,
+    Write = 1
+}
+
+// @public
+export interface AfterRenderRef {
+    destroy(): void;
+}
+
+// @public
 export interface AfterViewChecked {
     ngAfterViewChecked(): void;
 }
@@ -38,7 +65,7 @@ export interface AfterViewInit {
 export const ANIMATION_MODULE_TYPE: InjectionToken<"NoopAnimations" | "BrowserAnimations">;
 
 // @public
-export const APP_BOOTSTRAP_LISTENER: InjectionToken<((compRef: ComponentRef<any>) => void)[]>;
+export const APP_BOOTSTRAP_LISTENER: InjectionToken<readonly ((compRef: ComponentRef<any>) => void)[]>;
 
 // @public
 export const APP_ID: InjectionToken<string>;
@@ -104,6 +131,9 @@ export function asNativeElements(debugEls: DebugElement[]): any;
 export function assertInInjectionContext(debugFn: Function): void;
 
 // @public
+export function assertNotInReactiveContext(debugFn: Function, extraContext?: string): void;
+
+// @public
 export function assertPlatform(requiredToken: any): PlatformRef;
 
 // @public
@@ -126,6 +156,7 @@ export function booleanAttribute(value: unknown): boolean;
 
 // @public
 export interface BootstrapOptions {
+    ignoreChangesOutsideZone?: boolean;
     ngZone?: NgZone | 'zone.js' | 'noop';
     ngZoneEventCoalescing?: boolean;
     ngZoneRunCoalescing?: boolean;
@@ -139,6 +170,7 @@ export enum ChangeDetectionStrategy {
 
 // @public
 export abstract class ChangeDetectorRef {
+    // @deprecated
     abstract checkNoChanges(): void;
     abstract detach(): void;
     abstract detectChanges(): void;
@@ -183,10 +215,8 @@ export abstract class CompilerFactory {
 
 // @public
 export type CompilerOptions = {
-    useJit?: boolean;
     defaultEncapsulation?: ViewEncapsulation;
     providers?: StaticProvider[];
-    missingTranslation?: MissingTranslationStrategy;
     preserveWhitespaces?: boolean;
 };
 
@@ -202,7 +232,8 @@ export interface Component extends Directive {
     preserveWhitespaces?: boolean;
     schemas?: SchemaMetadata[];
     standalone?: boolean;
-    styles?: string[];
+    styles?: string | string[];
+    styleUrl?: string;
     styleUrls?: string[];
     template?: string;
     templateUrl?: string;
@@ -293,6 +324,9 @@ export type ContentChild = Query;
 export const ContentChild: ContentChildDecorator;
 
 // @public
+export const contentChild: ContentChildFunction;
+
+// @public
 export interface ContentChildDecorator {
     (selector: ProviderToken<unknown> | Function | string, opts?: {
         descendants?: boolean;
@@ -308,10 +342,45 @@ export interface ContentChildDecorator {
 }
 
 // @public
+export interface ContentChildFunction {
+    <LocatorT>(locator: ProviderToken<LocatorT> | string, opts?: {
+        descendants?: boolean;
+        read?: undefined;
+    }): Signal<LocatorT | undefined>;
+    // (undocumented)
+    <LocatorT, ReadT>(locator: ProviderToken<LocatorT> | string, opts: {
+        descendants?: boolean;
+        read: ProviderToken<ReadT>;
+    }): Signal<ReadT | undefined>;
+    required: {
+        <LocatorT>(locator: ProviderToken<LocatorT> | string, opts?: {
+            descendants?: boolean;
+            read?: undefined;
+        }): Signal<LocatorT>;
+        <LocatorT, ReadT>(locator: ProviderToken<LocatorT> | string, opts: {
+            descendants?: boolean;
+            read: ProviderToken<ReadT>;
+        }): Signal<ReadT>;
+    };
+}
+
+// @public
 export type ContentChildren = Query;
 
 // @public
 export const ContentChildren: ContentChildrenDecorator;
+
+// @public (undocumented)
+export function contentChildren<LocatorT>(locator: ProviderToken<LocatorT> | string, opts?: {
+    descendants?: boolean;
+    read?: undefined;
+}): Signal<ReadonlyArray<LocatorT>>;
+
+// @public (undocumented)
+export function contentChildren<LocatorT, ReadT>(locator: ProviderToken<LocatorT> | string, opts: {
+    descendants?: boolean;
+    read: ProviderToken<ReadT>;
+}): Signal<ReadonlyArray<ReadT>>;
 
 // @public
 export interface ContentChildrenDecorator {
@@ -525,6 +594,9 @@ export function effect(effectFn: (onCleanup: EffectCleanupRegisterFn) => void, o
 export type EffectCleanupFn = () => void;
 
 // @public
+export type EffectCleanupRegisterFn = (cleanupFn: EffectCleanupFn) => void;
+
+// @public
 export interface EffectRef {
     destroy(): void;
 }
@@ -545,7 +617,7 @@ export abstract class EmbeddedViewRef<C> extends ViewRef {
 export function enableProdMode(): void;
 
 // @public
-export const ENVIRONMENT_INITIALIZER: InjectionToken<() => void>;
+export const ENVIRONMENT_INITIALIZER: InjectionToken<readonly (() => void)[]>;
 
 // @public
 export abstract class EnvironmentInjector implements Injector {
@@ -576,7 +648,7 @@ export class ErrorHandler {
 }
 
 // @public
-export interface EventEmitter<T> extends Subject<T> {
+export interface EventEmitter<T> extends Subject<T>, OutputRef<T> {
     new (isAsync?: boolean): EventEmitter<T>;
     emit(value?: T): void;
     subscribe(next?: (value: T) => void, error?: (error: any) => void, complete?: () => void): Subscription;
@@ -650,6 +722,13 @@ export interface Host {
 export const Host: HostDecorator;
 
 // @public
+export class HostAttributeToken {
+    constructor(attributeName: string);
+    // (undocumented)
+    toString(): string;
+}
+
+// @public
 export interface HostBinding {
     hostPropertyName?: string;
 }
@@ -677,7 +756,7 @@ export interface HostListener {
     eventName?: string;
 }
 
-// @public
+// @public (undocumented)
 export const HostListener: HostListenerDecorator;
 
 // @public
@@ -717,6 +796,19 @@ export function inject<T>(token: ProviderToken<T>, options: InjectOptions & {
 
 // @public (undocumented)
 export function inject<T>(token: ProviderToken<T>, options: InjectOptions): T | null;
+
+// @public (undocumented)
+export function inject(token: HostAttributeToken): string;
+
+// @public (undocumented)
+export function inject(token: HostAttributeToken, options: {
+    optional: true;
+}): string | null;
+
+// @public (undocumented)
+export function inject(token: HostAttributeToken, options: {
+    optional: false;
+}): string;
 
 // @public
 export interface Injectable {
@@ -795,7 +887,7 @@ export abstract class Injector {
     // @deprecated (undocumented)
     static create(providers: StaticProvider[], parent?: Injector): Injector;
     static create(options: {
-        providers: StaticProvider[];
+        providers: Array<Provider | StaticProvider>;
         parent?: Injector;
         name?: string;
     }): Injector;
@@ -834,11 +926,53 @@ export interface Input {
 // @public (undocumented)
 export const Input: InputDecorator;
 
+// @public
+export const input: InputFunction;
+
 // @public (undocumented)
 export interface InputDecorator {
     (arg?: string | Input): any;
     // (undocumented)
     new (arg?: string | Input): any;
+}
+
+// @public
+export interface InputFunction {
+    <T>(): InputSignal<T | undefined>;
+    <T>(initialValue: T, opts?: InputOptionsWithoutTransform<T>): InputSignal<T>;
+    <T, TransformT>(initialValue: T, opts: InputOptionsWithTransform<T, TransformT>): InputSignalWithTransform<T, TransformT>;
+    required: {
+        <T>(opts?: InputOptionsWithoutTransform<T>): InputSignal<T>;
+        <T, TransformT>(opts: InputOptionsWithTransform<T, TransformT>): InputSignalWithTransform<T, TransformT>;
+    };
+}
+
+// @public
+export interface InputOptions<T, TransformT> {
+    alias?: string;
+    transform?: (v: TransformT) => T;
+}
+
+// @public
+export type InputOptionsWithoutTransform<T> = Omit<InputOptions<T, T>, 'transform'> & {
+    transform?: undefined;
+};
+
+// @public
+export type InputOptionsWithTransform<T, TransformT> = Required<Pick<InputOptions<T, TransformT>, 'transform'>> & InputOptions<T, TransformT>;
+
+// @public
+export interface InputSignal<T> extends InputSignalWithTransform<T, T> {
+}
+
+// @public
+export interface InputSignalWithTransform<T, TransformT> extends Signal<T> {
+    // (undocumented)
+    [ɵINPUT_SIGNAL_BRAND_READ_TYPE]: T;
+    // (undocumented)
+    [ɵINPUT_SIGNAL_BRAND_WRITE_TYPE]: TransformT;
+    // (undocumented)
+    [SIGNAL]: InputSignalNode<T, TransformT>;
 }
 
 // @public
@@ -960,6 +1094,34 @@ export enum MissingTranslationStrategy {
     Warning = 1
 }
 
+// @public
+export const model: ModelFunction;
+
+// @public
+export interface ModelFunction {
+    <T>(): ModelSignal<T | undefined>;
+    <T>(initialValue: T, opts?: ModelOptions): ModelSignal<T>;
+    // (undocumented)
+    required: {
+        <T>(opts?: ModelOptions): ModelSignal<T>;
+    };
+}
+
+// @public
+export interface ModelOptions {
+    alias?: string;
+}
+
+// @public
+export interface ModelSignal<T> extends WritableSignal<T>, OutputRef<T> {
+    // (undocumented)
+    [ɵINPUT_SIGNAL_BRAND_READ_TYPE]: T;
+    // (undocumented)
+    [ɵINPUT_SIGNAL_BRAND_WRITE_TYPE]: T;
+    // (undocumented)
+    [SIGNAL]: InputSignalNode<T, T>;
+}
+
 // @public @deprecated
 export class ModuleWithComponentFactories<T> {
     constructor(ngModuleFactory: NgModuleFactory<T>, componentFactories: ComponentFactory<any>[]);
@@ -1020,7 +1182,7 @@ export abstract class NgModuleRef<T> {
     abstract onDestroy(callback: () => void): void;
 }
 
-// @public
+// @public @deprecated
 export class NgProbeToken {
     constructor(name: string, token: any);
     // (undocumented)
@@ -1036,15 +1198,12 @@ export class NgZone {
         shouldCoalesceEventChangeDetection?: boolean | undefined;
         shouldCoalesceRunChangeDetection?: boolean | undefined;
     });
-    // (undocumented)
     static assertInAngularZone(): void;
-    // (undocumented)
     static assertNotInAngularZone(): void;
     // (undocumented)
     readonly hasPendingMacrotasks: boolean;
     // (undocumented)
     readonly hasPendingMicrotasks: boolean;
-    // (undocumented)
     static isInAngularZone(): boolean;
     readonly isStable: boolean;
     readonly onError: EventEmitter<any>;
@@ -1060,6 +1219,7 @@ export class NgZone {
 // @public
 export interface NgZoneOptions {
     eventCoalescing?: boolean;
+    ignoreChangesOutsideZone?: boolean;
     runCoalescing?: boolean;
 }
 
@@ -1107,6 +1267,9 @@ export interface Output {
 export const Output: OutputDecorator;
 
 // @public
+export function output<T = void>(opts?: OutputOptions): OutputEmitterRef<T>;
+
+// @public
 export interface OutputDecorator {
     (alias?: string): any;
     // (undocumented)
@@ -1114,6 +1277,31 @@ export interface OutputDecorator {
 }
 
 // @public
+export class OutputEmitterRef<T> implements OutputRef<T> {
+    constructor();
+    emit(value: T): void;
+    // (undocumented)
+    subscribe(callback: (value: T) => void): OutputRefSubscription;
+}
+
+// @public
+export interface OutputOptions {
+    // (undocumented)
+    alias?: string;
+}
+
+// @public
+export interface OutputRef<T> {
+    subscribe(callback: (value: T) => void): OutputRefSubscription;
+}
+
+// @public
+export interface OutputRefSubscription {
+    // (undocumented)
+    unsubscribe(): void;
+}
+
+// @public @deprecated
 export const PACKAGE_ROOT_URL: InjectionToken<string>;
 
 // @public
@@ -1142,7 +1330,7 @@ export interface PipeTransform {
 export const PLATFORM_ID: InjectionToken<Object>;
 
 // @public
-export const PLATFORM_INITIALIZER: InjectionToken<(() => void)[]>;
+export const PLATFORM_INITIALIZER: InjectionToken<readonly (() => void)[]>;
 
 // @public
 export const platformCore: (extraProviders?: StaticProvider[] | undefined) => PlatformRef;
@@ -1163,10 +1351,10 @@ export class PlatformRef {
 }
 
 // @public
-export interface Predicate<T> {
-    // (undocumented)
-    (value: T): boolean;
-}
+export type Predicate<T> = (value: T) => boolean;
+
+// @public
+export function provideExperimentalZonelessChangeDetection(): EnvironmentProviders;
 
 // @public
 export type Provider = TypeProvider | ValueProvider | ClassProvider | ConstructorProvider | ExistingProvider | FactoryProvider | any[];
@@ -1408,13 +1596,7 @@ export abstract class TemplateRef<C> {
 // @public
 export class Testability implements PublicTestability {
     constructor(_ngZone: NgZone, registry: TestabilityRegistry, testabilityGetter: GetTestability);
-    // @deprecated
-    decreasePendingRequestCount(): number;
     findProviders(using: any, provider: string, exactMatch: boolean): any[];
-    // @deprecated
-    getPendingRequestCount(): number;
-    // @deprecated
-    increasePendingRequestCount(): number;
     isStable(): boolean;
     whenStable(doneCb: Function, timeout?: number, updateCb?: Function): void;
     // (undocumented)
@@ -1525,6 +1707,9 @@ export type ViewChild = Query;
 export const ViewChild: ViewChildDecorator;
 
 // @public
+export const viewChild: ViewChildFunction;
+
+// @public
 export interface ViewChildDecorator {
     (selector: ProviderToken<unknown> | Function | string, opts?: {
         read?: any;
@@ -1538,10 +1723,33 @@ export interface ViewChildDecorator {
 }
 
 // @public
+export interface ViewChildFunction {
+    <LocatorT>(locator: ProviderToken<LocatorT> | string): Signal<LocatorT | undefined>;
+    // (undocumented)
+    <LocatorT, ReadT>(locator: ProviderToken<LocatorT> | string, opts: {
+        read: ProviderToken<ReadT>;
+    }): Signal<ReadT | undefined>;
+    required: {
+        <LocatorT>(locator: ProviderToken<LocatorT> | string): Signal<LocatorT>;
+        <LocatorT, ReadT>(locator: ProviderToken<LocatorT> | string, opts: {
+            read: ProviderToken<ReadT>;
+        }): Signal<ReadT>;
+    };
+}
+
+// @public
 export type ViewChildren = Query;
 
 // @public
 export const ViewChildren: ViewChildrenDecorator;
+
+// @public (undocumented)
+export function viewChildren<LocatorT>(locator: ProviderToken<LocatorT> | string): Signal<ReadonlyArray<LocatorT>>;
+
+// @public (undocumented)
+export function viewChildren<LocatorT, ReadT>(locator: ProviderToken<LocatorT> | string, opts: {
+    read: ProviderToken<ReadT>;
+}): Signal<ReadonlyArray<ReadT>>;
 
 // @public
 export interface ViewChildrenDecorator {
@@ -1602,27 +1810,12 @@ export abstract class ViewRef extends ChangeDetectorRef {
 
 // @public
 export interface WritableSignal<T> extends Signal<T> {
+    // (undocumented)
+    [ɵWRITABLE_SIGNAL]: T;
     asReadonly(): Signal<T>;
-    mutate(mutatorFn: (value: T) => void): void;
     set(value: T): void;
     update(updateFn: (value: T) => T): void;
 }
-
-// @public
-export function ɵɵdefineInjectable<T>(opts: {
-    token: unknown;
-    providedIn?: Type<any> | 'root' | 'platform' | 'any' | 'environment' | null;
-    factory: () => T;
-}): unknown;
-
-// @public
-export function ɵɵinject<T>(token: ProviderToken<T>): T;
-
-// @public (undocumented)
-export function ɵɵinject<T>(token: ProviderToken<T>, flags?: InjectFlags): T | null;
-
-// @public
-export function ɵɵinjectAttribute(attrNameToInject: string): string | null;
 
 // (No @packageDocumentation comment for this package)
 

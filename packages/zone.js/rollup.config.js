@@ -49,7 +49,7 @@ const stripBannerPlugin = {
 const banner = `'use strict';
 /**
  * @license Angular v${version}
- * (c) 2010-2022 Google LLC. https://angular.io/
+ * (c) 2010-2024 Google LLC. https://angular.io/
  * License: MIT
  */`;
 
@@ -66,7 +66,7 @@ module.exports = {
       return false;
     }
 
-    return /rxjs|electron/.test(id);
+    return /rxjs|^electron/.test(id);
   },
   output: {
     globals: {

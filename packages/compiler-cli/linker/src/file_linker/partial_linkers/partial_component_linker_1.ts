@@ -5,7 +5,8 @@
  * Use of this source code is governed by an MIT-style license that can be
  * found in the LICENSE file at https://angular.io/license
  */
-import {ChangeDetectionStrategy, compileComponentFromMetadata, ConstantPool, DeclarationListEmitMode, DEFAULT_INTERPOLATION_CONFIG, ForwardRefHandling, InterpolationConfig, makeBindingParser, outputAst as o, parseTemplate, R3ComponentMetadata, R3DeclareComponentMetadata, R3DeclareDirectiveDependencyMetadata, R3DeclarePipeDependencyMetadata, R3DirectiveDependencyMetadata, R3PartialDeclaration, R3TemplateDependencyKind, R3TemplateDependencyMetadata, ViewEncapsulation} from '@angular/compiler';
+import {BoundTarget, ChangeDetectionStrategy, compileComponentFromMetadata, ConstantPool, DeclarationListEmitMode, DEFAULT_INTERPOLATION_CONFIG, DeferBlockDepsEmitMode, ForwardRefHandling, InterpolationConfig, makeBindingParser, outputAst as o, parseTemplate, R3ComponentDeferMetadata, R3ComponentMetadata, R3DeclareComponentMetadata, R3DeclareDirectiveDependencyMetadata, R3DeclarePipeDependencyMetadata, R3DirectiveDependencyMetadata, R3PartialDeclaration, R3TargetBinder, R3TemplateDependencyKind, R3TemplateDependencyMetadata, SelectorMatcher, TmplAstDeferredBlock, ViewEncapsulation} from '@angular/compiler';
+import semver from 'semver';
 
 import {AbsoluteFsPath} from '../../../../src/ngtsc/file_system';
 import {Range} from '../../ast/ast_host';
@@ -15,7 +16,7 @@ import {GetSourceFileFn} from '../get_source_file';
 
 import {toR3DirectiveMeta} from './partial_directive_linker_1';
 import {LinkedDefinition, PartialLinker} from './partial_linker';
-import {extractForwardRef} from './util';
+import {extractForwardRef, PLACEHOLDER_VERSION} from './util';
 
 function makeDirectiveMetadata<TExpression>(
     directiveExpr: AstObject<R3DeclareDirectiveDependencyMetadata, TExpression>,
@@ -49,21 +50,26 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
       private code: string) {}
 
   linkPartialDeclaration(
-      constantPool: ConstantPool,
-      metaObj: AstObject<R3PartialDeclaration, TExpression>): LinkedDefinition {
-    const meta = this.toR3ComponentMeta(metaObj);
+      constantPool: ConstantPool, metaObj: AstObject<R3PartialDeclaration, TExpression>,
+      version: string): LinkedDefinition {
+    const meta = this.toR3ComponentMeta(metaObj, version);
     return compileComponentFromMetadata(meta, constantPool, makeBindingParser());
   }
 
   /**
    * This function derives the `R3ComponentMetadata` from the provided AST object.
    */
-  private toR3ComponentMeta(metaObj: AstObject<R3DeclareComponentMetadata, TExpression>):
-      R3ComponentMetadata<R3TemplateDependencyMetadata> {
+  private toR3ComponentMeta(
+      metaObj: AstObject<R3DeclareComponentMetadata, TExpression>,
+      version: string): R3ComponentMetadata<R3TemplateDependencyMetadata> {
     const interpolation = parseInterpolationConfig(metaObj);
     const templateSource = metaObj.getValue('template');
     const isInline = metaObj.has('isInline') ? metaObj.getBoolean('isInline') : false;
     const templateInfo = this.getTemplateInfo(templateSource, isInline);
+
+    // Enable the new block syntax if compiled with v17 and
+    // above, or when using the local placeholder version.
+    const enableBlockSyntax = semver.major(version) >= 17 || version === PLACEHOLDER_VERSION;
 
     const template = parseTemplate(templateInfo.code, templateInfo.sourceUrl, {
       escapedString: templateInfo.isEscaped,
@@ -74,6 +80,7 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
           metaObj.has('preserveWhitespaces') ? metaObj.getBoolean('preserveWhitespaces') : false,
       // We normalize line endings if the template is was inline.
       i18nNormalizeLineEndingsInICUs: isInline,
+      enableBlockSyntax,
     });
     if (template.errors !== null) {
       const errors = template.errors.map(err => err.toString()).join('\n');
@@ -81,6 +88,8 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
           templateSource.expression, `Errors found in the template:\n${errors}`);
     }
 
+    const binder = new R3TargetBinder(new SelectorMatcher());
+    const boundTarget = binder.bind({template: template.nodes});
     let declarationListEmitMode = DeclarationListEmitMode.Direct;
 
     const extractDeclarationTypeExpr =
@@ -169,6 +178,7 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
       declarationListEmitMode,
       styles: metaObj.has('styles') ? metaObj.getArray('styles').map(entry => entry.getString()) :
                                       [],
+      defer: this.createR3ComponentDeferMetadata(metaObj, boundTarget),
       encapsulation: metaObj.has('encapsulation') ?
           parseEncapsulation(metaObj.getValue('encapsulation')) :
           ViewEncapsulation.Emulated,
@@ -246,6 +256,29 @@ export class PartialComponentLinkerVersion1<TStatement, TExpression> implements
       isEscaped: true,
     };
   }
+
+  private createR3ComponentDeferMetadata(
+      metaObj: AstObject<R3DeclareComponentMetadata, TExpression>,
+      boundTarget: BoundTarget<any>): R3ComponentDeferMetadata {
+    const deferredBlocks = boundTarget.getDeferBlocks();
+    const blocks = new Map<TmplAstDeferredBlock, o.Expression|null>();
+    const dependencies =
+        metaObj.has('deferBlockDependencies') ? metaObj.getArray('deferBlockDependencies') : null;
+
+    for (let i = 0; i < deferredBlocks.length; i++) {
+      const matchingDependencyFn = dependencies?.[i];
+
+      if (matchingDependencyFn == null) {
+        blocks.set(deferredBlocks[i], null);
+      } else {
+        blocks.set(
+            deferredBlocks[i],
+            matchingDependencyFn.isNull() ? null : matchingDependencyFn.getOpaque());
+      }
+    }
+
+    return {mode: DeferBlockDepsEmitMode.PerBlock, blocks};
+  }
 }
 
 interface TemplateInfo {
@@ -277,8 +310,8 @@ function parseInterpolationConfig<TExpression>(
 /**
  * Determines the `ViewEncapsulation` mode from the AST value's symbol name.
  */
-function parseEncapsulation<TExpression>(encapsulation: AstValue<ViewEncapsulation, TExpression>):
-    ViewEncapsulation {
+function parseEncapsulation<TExpression>(
+    encapsulation: AstValue<ViewEncapsulation|undefined, TExpression>): ViewEncapsulation {
   const symbolName = encapsulation.getSymbolName();
   if (symbolName === null) {
     throw new FatalLinkerError(
@@ -295,7 +328,7 @@ function parseEncapsulation<TExpression>(encapsulation: AstValue<ViewEncapsulati
  * Determines the `ChangeDetectionStrategy` from the AST value's symbol name.
  */
 function parseChangeDetectionStrategy<TExpression>(
-    changeDetectionStrategy: AstValue<ChangeDetectionStrategy, TExpression>):
+    changeDetectionStrategy: AstValue<ChangeDetectionStrategy|undefined, TExpression>):
     ChangeDetectionStrategy {
   const symbolName = changeDetectionStrategy.getSymbolName();
   if (symbolName === null) {

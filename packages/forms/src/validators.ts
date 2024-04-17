@@ -58,7 +58,8 @@ function hasValidLength(value: any): boolean {
  *
  * @publicApi
  */
-export const NG_VALIDATORS = new InjectionToken<Array<Validator|Function>>('NgValidators');
+export const NG_VALIDATORS =
+    new InjectionToken<ReadonlyArray<Validator|Function>>(ngDevMode ? 'NgValidators' : '');
 
 /**
  * @description
@@ -90,7 +91,7 @@ export const NG_VALIDATORS = new InjectionToken<Array<Validator|Function>>('NgVa
  * @publicApi
  */
 export const NG_ASYNC_VALIDATORS =
-    new InjectionToken<Array<Validator|Function>>('NgAsyncValidators');
+    new InjectionToken<ReadonlyArray<Validator|Function>>(ngDevMode ? 'NgAsyncValidators' : '');
 
 /**
  * A regular expression that matches valid e-mail addresses.
@@ -132,7 +133,7 @@ const EMAIL_REGEXP =
  * A validator is a function that processes a `FormControl` or collection of
  * controls and returns an error map or null. A null map means that validation has passed.
  *
- * @see [Form Validation](/guide/form-validation)
+ * @see [Form Validation](guide/forms/form-validation)
  *
  * @publicApi
  */

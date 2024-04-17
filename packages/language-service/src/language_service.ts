@@ -6,62 +6,57 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {AbsoluteSourceSpan, AST, ParseSourceSpan, TmplAstBoundEvent, TmplAstNode} from '@angular/compiler';
+import {AST, TmplAstNode} from '@angular/compiler';
 import {CompilerOptions, ConfigurationHost, readConfiguration} from '@angular/compiler-cli';
 import {NgCompiler} from '@angular/compiler-cli/src/ngtsc/core';
 import {ErrorCode, ngErrorCode} from '@angular/compiler-cli/src/ngtsc/diagnostics';
-import {absoluteFrom, absoluteFromSourceFile, AbsoluteFsPath} from '@angular/compiler-cli/src/ngtsc/file_system';
+import {absoluteFrom, AbsoluteFsPath} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {PerfPhase} from '@angular/compiler-cli/src/ngtsc/perf';
 import {FileUpdate, ProgramDriver} from '@angular/compiler-cli/src/ngtsc/program_driver';
 import {isNamedClassDeclaration} from '@angular/compiler-cli/src/ngtsc/reflection';
-import {TypeCheckShimGenerator} from '@angular/compiler-cli/src/ngtsc/typecheck';
 import {OptimizeFor} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
-import {findFirstMatchingNode} from '@angular/compiler-cli/src/ngtsc/typecheck/src/comments';
-import ts from 'typescript/lib/tsserverlibrary';
+import ts from 'typescript';
 
-import {GetComponentLocationsForTemplateResponse, GetTcbResponse, GetTemplateLocationForComponentResponse} from '../api';
+import {GetComponentLocationsForTemplateResponse, GetTcbResponse, GetTemplateLocationForComponentResponse, PluginConfig} from '../api';
 
 import {LanguageServiceAdapter, LSParseConfigHost} from './adapters';
 import {ALL_CODE_FIXES_METAS, CodeFixes} from './codefixes';
 import {CompilerFactory} from './compiler_factory';
-import {CompletionBuilder, CompletionNodeContext} from './completions';
+import {CompletionBuilder} from './completions';
 import {DefinitionBuilder} from './definitions';
+import {getOutliningSpans} from './outlining_spans';
 import {QuickInfoBuilder} from './quick_info';
 import {ReferencesBuilder, RenameBuilder} from './references_and_rename';
 import {createLocationKey} from './references_and_rename_utils';
 import {getSignatureHelp} from './signature_help';
-import {getTargetAtPosition, getTcbNodesOfTemplateAtPosition, TargetContext, TargetNodeKind} from './template_target';
+import {getTargetAtPosition, getTcbNodesOfTemplateAtPosition, TargetNodeKind} from './template_target';
 import {findTightestNode, getClassDeclFromDecoratorProp, getParentClassDeclaration, getPropertyAssignmentFromValue} from './ts_utils';
 import {getTemplateInfoAtPosition, isTypeScriptFile} from './utils';
 
-interface LanguageServiceConfig {
-  /**
-   * If true, enable `strictTemplates` in Angular compiler options regardless
-   * of its value in tsconfig.json.
-   */
-  forceStrictTemplates?: true;
-}
+type LanguageServiceConfig = Omit<PluginConfig, 'angularOnly'>;
 
 export class LanguageService {
   private options: CompilerOptions;
   readonly compilerFactory: CompilerFactory;
-  private readonly programDriver: ProgramDriver;
-  private readonly adapter: LanguageServiceAdapter;
-  private readonly parseConfigHost: LSParseConfigHost;
   private readonly codeFixes: CodeFixes;
 
   constructor(
       private readonly project: ts.server.Project,
       private readonly tsLS: ts.LanguageService,
-      private readonly config: LanguageServiceConfig,
+      private readonly config: Omit<PluginConfig, 'angularOnly'>,
   ) {
-    this.parseConfigHost = new LSParseConfigHost(project.projectService.host);
-    this.options = parseNgCompilerOptions(project, this.parseConfigHost, config);
+    if (project.projectKind === ts.server.ProjectKind.Configured) {
+      const parseConfigHost = new LSParseConfigHost(project.projectService.host);
+      this.options = parseNgCompilerOptions(project, parseConfigHost, config);
+      this.watchConfigFile(project, parseConfigHost);
+    } else {
+      this.options = project.getCompilerOptions();
+    }
     logCompilerOptions(project, this.options);
-    this.programDriver = createProgramDriver(project);
-    this.adapter = new LanguageServiceAdapter(project);
-    this.compilerFactory = new CompilerFactory(this.adapter, this.programDriver, this.options);
-    this.watchConfigFile(project);
+
+    const programDriver = createProgramDriver(project);
+    const adapter = new LanguageServiceAdapter(project);
+    this.compilerFactory = new CompilerFactory(adapter, programDriver, this.options);
     this.codeFixes = new CodeFixes(tsLS, ALL_CODE_FIXES_METAS);
   }
 
@@ -120,7 +115,7 @@ export class LanguageService {
       if (!isInAngularContext(compiler.getCurrentProgram(), fileName, position)) {
         return undefined;
       }
-      return new DefinitionBuilder(this.tsLS, compiler, this.programDriver)
+      return new DefinitionBuilder(this.tsLS, compiler)
           .getDefinitionAndBoundSpan(fileName, position);
     });
   }
@@ -131,7 +126,7 @@ export class LanguageService {
       if (!isTemplateContext(compiler.getCurrentProgram(), fileName, position)) {
         return undefined;
       }
-      return new DefinitionBuilder(this.tsLS, compiler, this.programDriver)
+      return new DefinitionBuilder(this.tsLS, compiler)
           .getTypeDefinitionsAtPosition(fileName, position);
     });
   }
@@ -166,23 +161,22 @@ export class LanguageService {
     const node = positionDetails.context.kind === TargetNodeKind.TwoWayBindingContext ?
         positionDetails.context.nodes[0] :
         positionDetails.context.node;
-    return new QuickInfoBuilder(
-               this.tsLS, compiler, templateInfo.component, node, positionDetails.parent)
+    return new QuickInfoBuilder(this.tsLS, compiler, templateInfo.component, node, positionDetails)
         .get();
   }
 
   getReferencesAtPosition(fileName: string, position: number): ts.ReferenceEntry[]|undefined {
     return this.withCompilerAndPerfTracing(PerfPhase.LsReferencesAndRenames, (compiler) => {
-      const results = new ReferencesBuilder(this.programDriver, this.tsLS, compiler)
-                          .getReferencesAtPosition(fileName, position);
+      const results =
+          new ReferencesBuilder(this.tsLS, compiler).getReferencesAtPosition(fileName, position);
       return results === undefined ? undefined : getUniqueLocations(results);
     });
   }
 
   getRenameInfo(fileName: string, position: number): ts.RenameInfo {
     return this.withCompilerAndPerfTracing(PerfPhase.LsReferencesAndRenames, (compiler) => {
-      const renameInfo = new RenameBuilder(this.programDriver, this.tsLS, compiler)
-                             .getRenameInfo(absoluteFrom(fileName), position);
+      const renameInfo =
+          new RenameBuilder(this.tsLS, compiler).getRenameInfo(absoluteFrom(fileName), position);
       if (!renameInfo.canRename) {
         return renameInfo;
       }
@@ -197,8 +191,8 @@ export class LanguageService {
 
   findRenameLocations(fileName: string, position: number): readonly ts.RenameLocation[]|undefined {
     return this.withCompilerAndPerfTracing(PerfPhase.LsReferencesAndRenames, (compiler) => {
-      const results = new RenameBuilder(this.programDriver, this.tsLS, compiler)
-                          .findRenameLocations(fileName, position);
+      const results =
+          new RenameBuilder(this.tsLS, compiler).findRenameLocations(fileName, position);
       return results === null ? undefined : getUniqueLocations(results);
     });
   }
@@ -271,8 +265,12 @@ export class LanguageService {
       }
 
       return getSignatureHelp(compiler, this.tsLS, fileName, position, options);
+    });
+  }
 
-      return undefined;
+  getOutliningSpans(fileName: string): ts.OutliningSpan[] {
+    return this.withCompilerAndPerfTracing(PerfPhase.OutliningSpans, compiler => {
+      return getOutliningSpans(compiler, fileName);
     });
   }
 
@@ -355,7 +353,7 @@ export class LanguageService {
     return this.withCompilerAndPerfTracing<GetTemplateLocationForComponentResponse>(
         PerfPhase.LsComponentLocations, (compiler) => {
           const nearestNode =
-              findTightestNodeAtPosition(this.programDriver.getProgram(), fileName, position);
+              findTightestNodeAtPosition(compiler.getCurrentProgram(), fileName, position);
           if (nearestNode === undefined) {
             return undefined;
           }
@@ -469,7 +467,7 @@ export class LanguageService {
     });
   }
 
-  private watchConfigFile(project: ts.server.Project) {
+  private watchConfigFile(project: ts.server.Project, parseConfigHost: LSParseConfigHost) {
     // TODO: Check the case when the project is disposed. An InferredProject
     // could be disposed when a tsconfig.json is added to the workspace,
     // in which case it becomes a ConfiguredProject (or vice-versa).
@@ -482,7 +480,7 @@ export class LanguageService {
         project.getConfigFilePath(), (fileName: string, eventKind: ts.FileWatcherEventKind) => {
           project.log(`Config file changed: ${fileName}`);
           if (eventKind === ts.FileWatcherEventKind.Changed) {
-            this.options = parseNgCompilerOptions(project, this.parseConfigHost, this.config);
+            this.options = parseNgCompilerOptions(project, parseConfigHost, this.config);
             logCompilerOptions(project, this.options);
           }
         });
@@ -520,9 +518,14 @@ function parseNgCompilerOptions(
 
   // If `forceStrictTemplates` is true, always enable `strictTemplates`
   // regardless of its value in tsconfig.json.
-  if (config.forceStrictTemplates === true) {
+  if (config['forceStrictTemplates'] === true) {
     options.strictTemplates = true;
   }
+  if (config['enableBlockSyntax'] === false) {
+    options['_enableBlockSyntax'] = false;
+  }
+
+  options['_angularCoreVersion'] = config['angularCoreVersion'];
 
   return options;
 }
@@ -608,10 +611,13 @@ function isInAngularContext(program: ts.Program, fileName: string, position: num
     return false;
   }
 
-  const asgn = getPropertyAssignmentFromValue(node, 'template') ??
+  const assignment = getPropertyAssignmentFromValue(node, 'template') ??
       getPropertyAssignmentFromValue(node, 'templateUrl') ??
-      getPropertyAssignmentFromValue(node.parent, 'styleUrls');
-  return asgn !== null && getClassDeclFromDecoratorProp(asgn) !== null;
+      // `node.parent` is used because the string is a child of an array element and we want to get
+      // the property name
+      getPropertyAssignmentFromValue(node.parent, 'styleUrls') ??
+      getPropertyAssignmentFromValue(node, 'styleUrl');
+  return assignment !== null && getClassDeclFromDecoratorProp(assignment) !== null;
 }
 
 function findTightestNodeAtPosition(program: ts.Program, fileName: string, position: number) {

@@ -20,6 +20,7 @@ load("@npm//@angular/build-tooling/bazel/spec-bundling:index.bzl", "spec_bundle"
 load("@npm//tsec:index.bzl", _tsec_test = "tsec_test")
 load("//packages/bazel:index.bzl", _ng_module = "ng_module", _ng_package = "ng_package")
 load("//tools/esm-interop:index.bzl", "enable_esm_node_module_loader", _nodejs_binary = "nodejs_binary", _nodejs_test = "nodejs_test")
+load("@npm//@angular/build-tooling/bazel/api-gen:generate_api_docs.bzl", _generate_api_docs = "generate_api_docs")
 
 _DEFAULT_TSCONFIG_TEST = "//packages:tsconfig-test"
 _INTERNAL_NG_MODULE_COMPILER = "//packages/bazel/src/ngc-wrapped"
@@ -338,6 +339,10 @@ def karma_web_test_suite(
             tags = tags + [
                 "manual",
                 "no-remote-exec",
+                # Requires network to be able to access saucelabs daemon
+                "requires-network",
+                # Prevent the sandbox from being used so that it can communicate with the saucelabs daemon
+                "no-sandbox",
                 "saucelabs",
             ],
             configuration_env_vars = ["KARMA_WEB_TEST_MODE"],
@@ -406,7 +411,7 @@ def nodejs_test(name, templated_args = [], enable_linker = False, **kwargs):
     )
 
 def _node_modules_workspace_name():
-    return "npm" if not native.package_name().startswith("aio") else "aio_npm"
+    return "npm"
 
 def npm_package_bin(args = [], **kwargs):
     _npm_package_bin(
@@ -606,6 +611,27 @@ def esbuild(args = None, **kwargs):
     _esbuild(
         args = args if args else {
             "resolveExtensions": [".mjs", ".js", ".json"],
+        },
+        **kwargs
+    )
+
+def generate_api_docs(**kwargs):
+    _generate_api_docs(
+        # We need to specify import mappings for Angular packages that import other Angular
+        # packages.
+        import_map = {
+            # We only need to specify top-level entry-points, and only those that
+            # are imported from other packages.
+            "//packages/animations:index.ts": "@angular/animations",
+            "//packages/common:index.ts": "@angular/common",
+            "//packages/core:index.ts": "@angular/core",
+            "//packages/forms:index.ts": "@angular/forms",
+            "//packages/localize:index.ts": "@angular/localize",
+            "//packages/platform-browser-dynamic:index.ts": "@angular/platform-browser-dynamic",
+            "//packages/platform-browser:index.ts": "@angular/platform-browser",
+            "//packages/platform-server:index.ts": "@angular/platform-server",
+            "//packages/router:index.ts": "@angular/router",
+            "//packages/upgrade:index.ts": "@angular/upgrade",
         },
         **kwargs
     )

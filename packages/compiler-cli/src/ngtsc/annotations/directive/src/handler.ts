@@ -9,14 +9,14 @@
 import {compileClassMetadata, compileDeclareClassMetadata, compileDeclareDirectiveFromMetadata, compileDirectiveFromMetadata, ConstantPool, FactoryTarget, makeBindingParser, R3ClassMetadata, R3DirectiveMetadata, WrappedNodeExpr} from '@angular/compiler';
 import ts from 'typescript';
 
-import {Reference, ReferenceEmitter} from '../../../imports';
+import {ImportedSymbolsTracker, Reference, ReferenceEmitter} from '../../../imports';
 import {extractSemanticTypeParameters, SemanticDepGraphUpdater} from '../../../incremental/semantic_graph';
 import {ClassPropertyMapping, DirectiveTypeCheckMeta, extractDirectiveTypeCheckMeta, HostDirectiveMeta, InputMapping, MatchSource, MetadataReader, MetadataRegistry, MetaKind} from '../../../metadata';
 import {PartialEvaluator} from '../../../partial_evaluator';
 import {PerfEvent, PerfRecorder} from '../../../perf';
 import {ClassDeclaration, ClassMember, ClassMemberKind, Decorator, ReflectionHost} from '../../../reflection';
 import {LocalModuleScopeRegistry} from '../../../scope';
-import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../../transform';
+import {AnalysisOutput, CompilationMode, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult} from '../../../transform';
 import {compileDeclareFactory, compileInputTransformFields, compileNgFactoryDefField, compileResults, extractClassMetadata, findAngularDecorator, getDirectiveDiagnostics, getProviderDiagnostics, getUndecoratedClassWithAngularFeaturesDiagnostic, InjectableClassRegistry, isAngularDecorator, readBaseClass, ReferencesRegistry, resolveProvidersRequiringFactory, toFactoryMetadata, validateHostDirectives} from '../../common';
 
 import {extractDirectiveMetadata} from './shared';
@@ -49,14 +49,24 @@ export interface DirectiveHandlerData {
 export class DirectiveDecoratorHandler implements
     DecoratorHandler<Decorator|null, DirectiveHandlerData, DirectiveSymbol, unknown> {
   constructor(
-      private reflector: ReflectionHost, private evaluator: PartialEvaluator,
-      private metaRegistry: MetadataRegistry, private scopeRegistry: LocalModuleScopeRegistry,
-      private metaReader: MetadataReader, private injectableRegistry: InjectableClassRegistry,
-      private refEmitter: ReferenceEmitter, private referencesRegistry: ReferencesRegistry,
-      private isCore: boolean, private strictCtorDeps: boolean,
+      private reflector: ReflectionHost,
+      private evaluator: PartialEvaluator,
+      private metaRegistry: MetadataRegistry,
+      private scopeRegistry: LocalModuleScopeRegistry,
+      private metaReader: MetadataReader,
+      private injectableRegistry: InjectableClassRegistry,
+      private refEmitter: ReferenceEmitter,
+      private referencesRegistry: ReferencesRegistry,
+      private isCore: boolean,
+      private strictCtorDeps: boolean,
       private semanticDepGraphUpdater: SemanticDepGraphUpdater|null,
-      private annotateForClosureCompiler: boolean, private perf: PerfRecorder,
-      private includeClassMetadata: boolean) {}
+      private annotateForClosureCompiler: boolean,
+      private perf: PerfRecorder,
+      private importTracker: ImportedSymbolsTracker,
+      private includeClassMetadata: boolean,
+      private readonly compilationMode: CompilationMode,
+      private readonly generateExtraImportsInLocalMode: boolean,
+  ) {}
 
   readonly precedence = HandlerPrecedence.PRIMARY;
   readonly name = 'DirectiveDecoratorHandler';
@@ -94,8 +104,9 @@ export class DirectiveDecoratorHandler implements
     this.perf.eventCount(PerfEvent.AnalyzeDirective);
 
     const directiveResult = extractDirectiveMetadata(
-        node, decorator, this.reflector, this.evaluator, this.refEmitter, this.referencesRegistry,
-        this.isCore, this.annotateForClosureCompiler);
+        node, decorator, this.reflector, this.importTracker, this.evaluator, this.refEmitter,
+        this.referencesRegistry, this.isCore, this.annotateForClosureCompiler, this.compilationMode,
+        /* defaultSelector */ null);
     if (directiveResult === undefined) {
       return {};
     }
@@ -160,11 +171,15 @@ export class DirectiveDecoratorHandler implements
       isStandalone: analysis.meta.isStandalone,
       isSignal: analysis.meta.isSignal,
       imports: null,
+      deferredImports: null,
       schemas: null,
+      ngContentSelectors: null,
       decorator: analysis.decorator,
+      preserveWhitespaces: false,
       // Directives analyzed within our own compilation are not _assumed_ to export providers.
       // Instead, we statically analyze their imports to make a direct determination.
       assumedToExportProviders: false,
+      isExplicitlyDeferred: false,
     });
 
     this.injectableRegistry.registerInjectable(node, {
@@ -174,6 +189,10 @@ export class DirectiveDecoratorHandler implements
 
   resolve(node: ClassDeclaration, analysis: DirectiveHandlerData, symbol: DirectiveSymbol):
       ResolveResult<unknown> {
+    if (this.compilationMode === CompilationMode.LOCAL) {
+      return {};
+    }
+
     if (this.semanticDepGraphUpdater !== null && analysis.baseClass instanceof Reference) {
       symbol.baseClass = this.semanticDepGraphUpdater.getSymbol(analysis.baseClass.node);
     }
@@ -214,7 +233,8 @@ export class DirectiveDecoratorHandler implements
     const classMetadata = analysis.classMetadata !== null ?
         compileClassMetadata(analysis.classMetadata).toStmt() :
         null;
-    return compileResults(fac, def, classMetadata, 'ɵdir', inputTransformFields);
+    return compileResults(
+        fac, def, classMetadata, 'ɵdir', inputTransformFields, null /* deferrableImports */);
   }
 
   compilePartial(
@@ -227,7 +247,21 @@ export class DirectiveDecoratorHandler implements
         compileDeclareClassMetadata(analysis.classMetadata).toStmt() :
         null;
 
-    return compileResults(fac, def, classMetadata, 'ɵdir', inputTransformFields);
+    return compileResults(
+        fac, def, classMetadata, 'ɵdir', inputTransformFields, null /* deferrableImports */);
+  }
+
+  compileLocal(
+      node: ClassDeclaration, analysis: Readonly<DirectiveHandlerData>,
+      resolution: Readonly<unknown>, pool: ConstantPool): CompileResult[] {
+    const fac = compileNgFactoryDefField(toFactoryMetadata(analysis.meta, FactoryTarget.Directive));
+    const def = compileDirectiveFromMetadata(analysis.meta, pool, makeBindingParser());
+    const inputTransformFields = compileInputTransformFields(analysis.inputs);
+    const classMetadata = analysis.classMetadata !== null ?
+        compileClassMetadata(analysis.classMetadata).toStmt() :
+        null;
+    return compileResults(
+        fac, def, classMetadata, 'ɵdir', inputTransformFields, null /* deferrableImports */);
   }
 
   /**

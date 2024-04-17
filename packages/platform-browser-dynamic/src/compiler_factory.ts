@@ -7,17 +7,7 @@
  */
 
 import {CompilerConfig} from '@angular/compiler';
-import {Compiler, CompilerFactory, CompilerOptions, InjectionToken, Injector, MissingTranslationStrategy, PACKAGE_ROOT_URL, StaticProvider, ViewEncapsulation} from '@angular/core';
-
-export const ERROR_COLLECTOR_TOKEN = new InjectionToken('ErrorCollector');
-
-/**
- * A default provider for {@link PACKAGE_ROOT_URL} that maps to '/'.
- */
-export const DEFAULT_PACKAGE_URL_PROVIDER = {
-  provide: PACKAGE_ROOT_URL,
-  useValue: '/'
-};
+import {Compiler, CompilerFactory, CompilerOptions, Injector, StaticProvider, ViewEncapsulation} from '@angular/core';
 
 export const COMPILER_PROVIDERS =
     <StaticProvider[]>[{provide: Compiler, useFactory: () => new Compiler()}];
@@ -26,8 +16,6 @@ export const COMPILER_PROVIDERS =
  *
  * @deprecated
  * Ivy JIT mode doesn't require accessing this symbol.
- * See [JIT API changes due to ViewEngine deprecation](guide/deprecations#jit-api-changes) for
- * additional context.
  */
 export class JitCompilerFactory implements CompilerFactory {
   private _defaultOptions: CompilerOptions[];
@@ -35,9 +23,7 @@ export class JitCompilerFactory implements CompilerFactory {
   /** @internal */
   constructor(defaultOptions: CompilerOptions[]) {
     const compilerOptions: CompilerOptions = {
-      useJit: true,
       defaultEncapsulation: ViewEncapsulation.Emulated,
-      missingTranslation: MissingTranslationStrategy.Warning,
     };
 
     this._defaultOptions = [compilerOptions, ...defaultOptions];
@@ -51,13 +37,7 @@ export class JitCompilerFactory implements CompilerFactory {
           provide: CompilerConfig,
           useFactory: () => {
             return new CompilerConfig({
-              // let explicit values from the compiler options overwrite options
-              // from the app providers
-              useJit: opts.useJit,
-              // let explicit values from the compiler options overwrite options
-              // from the app providers
               defaultEncapsulation: opts.defaultEncapsulation,
-              missingTranslation: opts.missingTranslation,
               preserveWhitespaces: opts.preserveWhitespaces,
             });
           },
@@ -72,10 +52,8 @@ export class JitCompilerFactory implements CompilerFactory {
 
 function _mergeOptions(optionsArr: CompilerOptions[]): CompilerOptions {
   return {
-    useJit: _lastDefined(optionsArr.map(options => options.useJit)),
     defaultEncapsulation: _lastDefined(optionsArr.map(options => options.defaultEncapsulation)),
     providers: _mergeArrays(optionsArr.map(options => options.providers!)),
-    missingTranslation: _lastDefined(optionsArr.map(options => options.missingTranslation)),
     preserveWhitespaces: _lastDefined(optionsArr.map(options => options.preserveWhitespaces)),
   };
 }

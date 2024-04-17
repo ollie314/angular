@@ -6,7 +6,6 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {InjectionToken} from '../di/injection_token';
 import {ProviderToken} from '../di/provider_token';
 import {makePropDecorator} from '../util/decorators';
 
@@ -65,6 +64,20 @@ export interface Query {
   isViewQuery: boolean;
   selector: any;
   static?: boolean;
+
+  /**
+   * @internal
+   *
+   * Whether the query is a signal query.
+   *
+   * This option exists for JIT compatibility. Users are not expected to use this.
+   * Angular needs a way to capture queries from classes so that the internal query
+   * functions can be generated. This needs to happen before the component is instantiated.
+   * Due to this, for JIT compilation, signal queries need an additional decorator
+   * declaring the query. Angular provides a TS transformer to automatically handle this
+   * for JIT usage (e.g. in tests).
+   */
+  isSignal?: boolean;
 }
 
 // Stores the default value of `emitDistinctChangesOnly` when the `emitDistinctChangesOnly` is not
@@ -75,10 +88,10 @@ export const emitDistinctChangesOnlyDefaultValue = true;
 /**
  * Base class for query metadata.
  *
- * @see {@link ContentChildren}.
- * @see {@link ContentChild}.
- * @see {@link ViewChildren}.
- * @see {@link ViewChild}.
+ * @see {@link ContentChildren}
+ * @see {@link ContentChild}
+ * @see {@link ViewChildren}
+ * @see {@link ViewChild}
  *
  * @publicApi
  */
@@ -87,7 +100,7 @@ export abstract class Query {}
 /**
  * Type of the ContentChildren decorator / constructor function.
  *
- * @see {@link ContentChildren}.
+ * @see {@link ContentChildren}
  * @publicApi
  */
 export interface ContentChildrenDecorator {
@@ -178,13 +191,13 @@ export type ContentChildren = Query;
  * @publicApi
  */
 export const ContentChildren: ContentChildrenDecorator = makePropDecorator(
-    'ContentChildren', (selector?: any, data: any = {}) => ({
+    'ContentChildren', (selector?: any, opts: any = {}) => ({
                          selector,
                          first: false,
                          isViewQuery: false,
                          descendants: false,
                          emitDistinctChangesOnly: emitDistinctChangesOnlyDefaultValue,
-                         ...data
+                         ...opts
                        }),
     Query);
 
@@ -201,8 +214,6 @@ export interface ContentChildDecorator {
    * Use to get the first element or the directive matching the selector from the content DOM.
    * If the content DOM changes, and a new child matches the selector,
    * the property will be updated.
-   *
-   * Content queries are set before the `ngAfterContentInit` callback is called.
    *
    * Does not retrieve elements or directives that are in other components' templates,
    * since a component's template is always a black box to its ancestors.
@@ -233,6 +244,17 @@ export interface ContentChildDecorator {
    * this query
    *   * Any provider defined through a string token (e.g. `{provide: 'token', useValue: 'val'}`)
    *   * `TemplateRef`, `ElementRef`, and `ViewContainerRef`
+   *
+   * Difference between dynamic and static queries:
+   *
+   * | Queries                             | Details |
+   * |:---                                 |:---     |
+   * | Dynamic queries \(`static: false`\) | The query resolves before the `ngAfterContentInit()`
+   * callback is called. The result will be updated for changes to your view, such as changes to
+   * `ngIf` and `ngFor` blocks. | | Static queries \(`static: true`\)   | The query resolves once
+   * the view has been created, but before change detection runs (before the `ngOnInit()` callback
+   * is called). The result, though, will never be updated to reflect changes to your view, such as
+   * changes to `ngIf` and `ngFor` blocks.  |
    *
    * @usageNotes
    *
@@ -267,14 +289,14 @@ export type ContentChild = Query;
  */
 export const ContentChild: ContentChildDecorator = makePropDecorator(
     'ContentChild',
-    (selector?: any, data: any = {}) =>
-        ({selector, first: true, isViewQuery: false, descendants: true, ...data}),
+    (selector?: any, opts: any = {}) =>
+        ({selector, first: true, isViewQuery: false, descendants: true, ...opts}),
     Query);
 
 /**
  * Type of the ViewChildren decorator / constructor function.
  *
- * @see {@link ViewChildren}.
+ * @see {@link ViewChildren}
  *
  * @publicApi
  */
@@ -350,20 +372,20 @@ export type ViewChildren = Query;
  * @publicApi
  */
 export const ViewChildren: ViewChildrenDecorator = makePropDecorator(
-    'ViewChildren', (selector?: any, data: any = {}) => ({
+    'ViewChildren', (selector?: any, opts: any = {}) => ({
                       selector,
                       first: false,
                       isViewQuery: true,
                       descendants: true,
                       emitDistinctChangesOnly: emitDistinctChangesOnlyDefaultValue,
-                      ...data
+                      ...opts
                     }),
     Query);
 
 /**
  * Type of the ViewChild decorator / constructor function.
  *
- * @see {@link ViewChild}.
+ * @see {@link ViewChild}
  * @publicApi
  */
 export interface ViewChildDecorator {
@@ -374,14 +396,12 @@ export interface ViewChildDecorator {
    * in the view DOM. If the view DOM changes, and a new child matches the selector,
    * the property is updated.
    *
-   * View queries are set before the `ngAfterViewInit` callback is called.
-   *
    * **Metadata Properties**:
    *
    * * **selector** - The directive type or the name used for querying.
    * * **read** - Used to read a different token from the queried elements.
-   * * **static** - True to resolve query results before change detection runs,
-   * false to resolve after change detection. Defaults to false.
+   * * **static** - `true` to resolve query results before change detection runs,
+   * `false` to resolve after change detection. Defaults to `false`.
    *
    *
    * The following selectors are supported.
@@ -402,7 +422,18 @@ export interface ViewChildDecorator {
    *   * Any provider defined through a string token (e.g. `{provide: 'token', useValue: 'val'}`)
    *   * `TemplateRef`, `ElementRef`, and `ViewContainerRef`
    *
+   * Difference between dynamic and static queries:
+   *   * Dynamic queries \(`static: false`\) - The query resolves before the `ngAfterViewInit()`
+   * callback is called. The result will be updated for changes to your view, such as changes to
+   * `ngIf` and `ngFor` blocks.
+   *   * Static queries \(`static: true`\) - The query resolves once
+   * the view has been created, but before change detection runs (before the `ngOnInit()` callback
+   * is called). The result, though, will never be updated to reflect changes to your view, such as
+   * changes to `ngIf` and `ngFor` blocks.
+   *
    * @usageNotes
+   *
+   * ### Example 1
    *
    * {@example core/di/ts/viewChild/view_child_example.ts region='Component'}
    *
@@ -432,6 +463,6 @@ export type ViewChild = Query;
  */
 export const ViewChild: ViewChildDecorator = makePropDecorator(
     'ViewChild',
-    (selector: any, data: any) =>
-        ({selector, first: true, isViewQuery: true, descendants: true, ...data}),
+    (selector: any, opts: any) =>
+        ({selector, first: true, isViewQuery: true, descendants: true, ...opts}),
     Query);

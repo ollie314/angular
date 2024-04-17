@@ -173,6 +173,34 @@ describe('ShadowCss, at-rules', () => {
     });
   });
 
+  describe('@scope', () => {
+    it('should scope normal selectors inside a scope rule with scoping limits', () => {
+      const css = `
+          @scope (.media-object) to (.content > *) {
+              img { border-radius: 50%; }
+              .content { padding: 1em; }
+          }`;
+      const result = shim(css, 'host-a');
+      expect(result).toEqualCss(`
+        @scope (.media-object) to (.content > *) {
+          img[host-a] { border-radius: 50%; }
+          .content[host-a] { padding: 1em; }
+        }`);
+    });
+
+    it('should scope normal selectors inside a scope rule', () => {
+      const css = `
+          @scope (.light-scheme) {
+              a { color: darkmagenta; }
+          }`;
+      const result = shim(css, 'host-a');
+      expect(result).toEqualCss(`
+        @scope (.light-scheme) {
+          a[host-a] { color: darkmagenta; }
+        }`);
+    });
+  });
+
   describe('@document', () => {
     it('should handle document rules', () => {
       const css = '@document url(http://www.w3.org/) {div {font-size:50px;}}';
@@ -186,6 +214,22 @@ describe('ShadowCss, at-rules', () => {
       const css = '@layer utilities {section {display: flex;}}';
       const expected = '@layer utilities {section[contenta] {display:flex;}}';
       expect(shim(css, 'contenta')).toEqualCss(expected);
+    });
+  });
+
+  describe('@starting-style', () => {
+    it('should scope normal selectors inside a starting-style rule', () => {
+      const css = `
+          @starting-style {
+              img { border-radius: 50%; }
+              .content { padding: 1em; }
+          }`;
+      const result = shim(css, 'host-a');
+      expect(result).toEqualCss(`
+        @starting-style {
+          img[host-a] { border-radius: 50%; }
+          .content[host-a] { padding: 1em; }
+        }`);
     });
   });
 });

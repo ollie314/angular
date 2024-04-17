@@ -14,11 +14,14 @@ import {isNgTemplate} from '../ml_parser/tags';
 import {InterpolatedAttributeToken, InterpolatedTextToken} from '../ml_parser/tokens';
 import {ParseError, ParseErrorLevel, ParseSourceSpan} from '../parse_util';
 import {isStyleUrlResolvable} from '../style_url_resolver';
+import {isI18nRootNode} from '../template/pipeline/src/ingest';
 import {BindingParser} from '../template_parser/binding_parser';
 import {PreparsedElementType, preparseElement} from '../template_parser/template_preparser';
 
 import * as t from './r3_ast';
-import {I18N_ICU_VAR_PREFIX, isI18nRootNode} from './view/i18n/util';
+import {createForLoop, createIfBlock, createSwitchBlock, isConnectedForLoopBlock, isConnectedIfLoopBlock} from './r3_control_flow';
+import {createDeferredBlock, isConnectedDeferLoopBlock} from './r3_deferred_blocks';
+import {I18N_ICU_VAR_PREFIX} from './view/i18n/util';
 
 const BIND_NAME_REGEXP = /^(?:(bind-)|(let-)|(ref-|#)|(on-)|(bindon-)|(@))(.*)$/;
 
@@ -64,7 +67,7 @@ export function htmlAstToRender3Ast(
     htmlNodes: html.Node[], bindingParser: BindingParser,
     options: Render3ParseOptions): Render3ParseResult {
   const transformer = new HtmlAstToIvyAst(bindingParser, options);
-  const ivyNodes = html.visitAll(transformer, htmlNodes);
+  const ivyNodes = html.visitAll(transformer, htmlNodes, htmlNodes);
 
   // Errors might originate in either the binding parser or the html to ivy transformer
   const allErrors = bindingParser.errors.concat(transformer.errors);
@@ -90,6 +93,12 @@ class HtmlAstToIvyAst implements html.Visitor {
   // This array will be populated if `Render3ParseOptions['collectCommentNodes']` is true
   commentNodes: t.Comment[] = [];
   private inI18nBlock: boolean = false;
+
+  /**
+   * Keeps track of the nodes that have been processed already when previous nodes were visited.
+   * These are typically blocks connected to other blocks or text nodes between connected blocks.
+   */
+  private processedNodes = new Set<html.Block|html.Text>();
 
   constructor(private bindingParser: BindingParser, private options: Render3ParseOptions) {}
 
@@ -184,21 +193,22 @@ class HtmlAstToIvyAst implements html.Visitor {
       }
     }
 
-    const children: t.Node[] =
-        html.visitAll(preparsedElement.nonBindable ? NON_BINDABLE_VISITOR : this, element.children);
+    let children: t.Node[];
+
+    if (preparsedElement.nonBindable) {
+      // The `NonBindableVisitor` may need to return an array of nodes for blocks so we need
+      // to flatten the array here. Avoid doing this for the `HtmlAstToIvyAst` since `flat` creates
+      // a new array.
+      children = html.visitAll(NON_BINDABLE_VISITOR, element.children).flat(Infinity);
+    } else {
+      children = html.visitAll(this, element.children, element.children);
+    }
 
     let parsedElement: t.Content|t.Template|t.Element|undefined;
     if (preparsedElement.type === PreparsedElementType.NG_CONTENT) {
-      // `<ng-content>`
-      if (element.children &&
-          !element.children.every(
-              (node: html.Node) => isEmptyTextNode(node) || isCommentNode(node))) {
-        this.reportError(`<ng-content> element cannot have content.`, element.sourceSpan);
-      }
       const selector = preparsedElement.selectAttr;
       const attrs: t.TextAttribute[] = element.attrs.map(attr => this.visitAttribute(attr));
-      parsedElement = new t.Content(selector, attrs, element.sourceSpan, element.i18n);
-
+      parsedElement = new t.Content(selector, attrs, children, element.sourceSpan, element.i18n);
       this.ngContentSelectors.push(selector);
     } else if (isTemplateElement) {
       // `<ng-template>`
@@ -255,8 +265,10 @@ class HtmlAstToIvyAst implements html.Visitor {
         attribute.valueSpan, attribute.i18n);
   }
 
-  visitText(text: html.Text): t.Node {
-    return this._visitTextWithInterpolation(text.value, text.sourceSpan, text.tokens, text.i18n);
+  visitText(text: html.Text): t.Node|null {
+    return this.processedNodes.has(text) ?
+        null :
+        this._visitTextWithInterpolation(text.value, text.sourceSpan, text.tokens, text.i18n);
   }
 
   visitExpansion(expansion: html.Expansion): t.Icu|null {
@@ -304,6 +316,103 @@ class HtmlAstToIvyAst implements html.Visitor {
       this.commentNodes.push(new t.Comment(comment.value || '', comment.sourceSpan));
     }
     return null;
+  }
+
+  visitBlockParameter() {
+    return null;
+  }
+
+  visitBlock(block: html.Block, context: html.Node[]) {
+    const index = Array.isArray(context) ? context.indexOf(block) : -1;
+
+    if (index === -1) {
+      throw new Error(
+          'Visitor invoked incorrectly. Expecting visitBlock to be invoked siblings array as its context');
+    }
+
+    // Connected blocks may have been processed as a part of the previous block.
+    if (this.processedNodes.has(block)) {
+      return null;
+    }
+
+    let result: {node: t.Node|null, errors: ParseError[]}|null = null;
+
+    switch (block.name) {
+      case 'defer':
+        result = createDeferredBlock(
+            block, this.findConnectedBlocks(index, context, isConnectedDeferLoopBlock), this,
+            this.bindingParser);
+        break;
+
+      case 'switch':
+        result = createSwitchBlock(block, this, this.bindingParser);
+        break;
+
+      case 'for':
+        result = createForLoop(
+            block, this.findConnectedBlocks(index, context, isConnectedForLoopBlock), this,
+            this.bindingParser);
+        break;
+
+      case 'if':
+        result = createIfBlock(
+            block, this.findConnectedBlocks(index, context, isConnectedIfLoopBlock), this,
+            this.bindingParser);
+        break;
+
+      default:
+        let errorMessage: string;
+
+        if (isConnectedDeferLoopBlock(block.name)) {
+          errorMessage = `@${block.name} block can only be used after an @defer block.`;
+          this.processedNodes.add(block);
+        } else if (isConnectedForLoopBlock(block.name)) {
+          errorMessage = `@${block.name} block can only be used after an @for block.`;
+          this.processedNodes.add(block);
+        } else if (isConnectedIfLoopBlock(block.name)) {
+          errorMessage = `@${block.name} block can only be used after an @if or @else if block.`;
+          this.processedNodes.add(block);
+        } else {
+          errorMessage = `Unrecognized block @${block.name}.`;
+        }
+
+        result = {
+          node: new t.UnknownBlock(block.name, block.sourceSpan, block.nameSpan),
+          errors: [new ParseError(block.sourceSpan, errorMessage)],
+        };
+        break;
+    }
+
+    this.errors.push(...result.errors);
+    return result.node;
+  }
+
+  private findConnectedBlocks(
+      primaryBlockIndex: number, siblings: html.Node[],
+      predicate: (blockName: string) => boolean): html.Block[] {
+    const relatedBlocks: html.Block[] = [];
+
+    for (let i = primaryBlockIndex + 1; i < siblings.length; i++) {
+      const node = siblings[i];
+
+      // Ignore empty text nodes between blocks.
+      if (node instanceof html.Text && node.value.trim().length === 0) {
+        // Add the text node to the processed nodes since we don't want
+        // it to be generated between the connected nodes.
+        this.processedNodes.add(node);
+        continue;
+      }
+
+      // Stop searching as soon as we hit a non-block node or a block that is unrelated.
+      if (!(node instanceof html.Block) || !predicate(node.name)) {
+        break;
+      }
+
+      relatedBlocks.push(node);
+      this.processedNodes.add(node);
+    }
+
+    return relatedBlocks;
   }
 
   // convert view engine `ParsedProperty` to a format suitable for IVY
@@ -359,7 +468,7 @@ class HtmlAstToIvyAst implements html.Visitor {
         const identifier = bindParts[IDENT_KW_IDX];
         const keySpan = createKeySpan(srcSpan, bindParts[KW_BIND_IDX], identifier);
         this.bindingParser.parsePropertyBinding(
-            identifier, value, false, srcSpan, absoluteOffset, attribute.valueSpan,
+            identifier, value, false, false, srcSpan, absoluteOffset, attribute.valueSpan,
             matchableAttributes, parsedProperties, keySpan);
 
       } else if (bindParts[KW_LET_IDX]) {
@@ -387,7 +496,7 @@ class HtmlAstToIvyAst implements html.Visitor {
         const identifier = bindParts[IDENT_KW_IDX];
         const keySpan = createKeySpan(srcSpan, bindParts[KW_BINDON_IDX], identifier);
         this.bindingParser.parsePropertyBinding(
-            identifier, value, false, srcSpan, absoluteOffset, attribute.valueSpan,
+            identifier, value, false, true, srcSpan, absoluteOffset, attribute.valueSpan,
             matchableAttributes, parsedProperties, keySpan);
         this.parseAssignmentEvent(
             identifier, value, srcSpan, attribute.valueSpan, matchableAttributes, boundEvents,
@@ -421,14 +530,14 @@ class HtmlAstToIvyAst implements html.Visitor {
       const keySpan = createKeySpan(srcSpan, delims.start, identifier);
       if (delims.start === BINDING_DELIMS.BANANA_BOX.start) {
         this.bindingParser.parsePropertyBinding(
-            identifier, value, false, srcSpan, absoluteOffset, attribute.valueSpan,
+            identifier, value, false, true, srcSpan, absoluteOffset, attribute.valueSpan,
             matchableAttributes, parsedProperties, keySpan);
         this.parseAssignmentEvent(
             identifier, value, srcSpan, attribute.valueSpan, matchableAttributes, boundEvents,
             keySpan);
       } else if (delims.start === BINDING_DELIMS.PROPERTY.start) {
         this.bindingParser.parsePropertyBinding(
-            identifier, value, false, srcSpan, absoluteOffset, attribute.valueSpan,
+            identifier, value, false, false, srcSpan, absoluteOffset, attribute.valueSpan,
             matchableAttributes, parsedProperties, keySpan);
       } else {
         const events: ParsedEvent[] = [];
@@ -490,7 +599,7 @@ class HtmlAstToIvyAst implements html.Visitor {
       boundEvents: t.BoundEvent[], keySpan: ParseSourceSpan) {
     const events: ParsedEvent[] = [];
     this.bindingParser.parseEvent(
-        `${name}Change`, `${expression} =$event`, /* isAssignmentEvent */ true, sourceSpan,
+        `${name}Change`, expression, /* isAssignmentEvent */ true, sourceSpan,
         valueSpan || sourceSpan, targetMatchableAttrs, events, keySpan);
     addEvents(events, boundEvents);
   }
@@ -517,7 +626,7 @@ class NonBindableVisitor implements html.Visitor {
     const children: t.Node[] = html.visitAll(this, ast.children, null);
     return new t.Element(
         ast.name, html.visitAll(this, ast.attrs) as t.TextAttribute[],
-        /* inputs */[], /* outputs */[], children,  /* references */[], ast.sourceSpan,
+        /* inputs */[], /* outputs */[], children, /* references */[], ast.sourceSpan,
         ast.startSourceSpan, ast.endSourceSpan);
   }
 
@@ -542,6 +651,25 @@ class NonBindableVisitor implements html.Visitor {
   visitExpansionCase(expansionCase: html.ExpansionCase): any {
     return null;
   }
+
+  visitBlock(block: html.Block, context: any) {
+    const nodes = [
+      // In an ngNonBindable context we treat the opening/closing tags of block as plain text.
+      // This is the as if the `tokenizeBlocks` option was disabled.
+      new t.Text(block.startSourceSpan.toString(), block.startSourceSpan),
+      ...html.visitAll(this, block.children)
+    ];
+
+    if (block.endSourceSpan !== null) {
+      nodes.push(new t.Text(block.endSourceSpan.toString(), block.endSourceSpan));
+    }
+
+    return nodes;
+  }
+
+  visitBlockParameter(parameter: html.BlockParameter, context: any) {
+    return null;
+  }
 }
 
 const NON_BINDABLE_VISITOR = new NonBindableVisitor();
@@ -552,14 +680,6 @@ function normalizeAttributeName(attrName: string): string {
 
 function addEvents(events: ParsedEvent[], boundEvents: t.BoundEvent[]) {
   boundEvents.push(...events.map(e => t.BoundEvent.fromParsedEvent(e)));
-}
-
-function isEmptyTextNode(node: html.Node): boolean {
-  return node instanceof html.Text && node.value.trim().length == 0;
-}
-
-function isCommentNode(node: html.Node): boolean {
-  return node instanceof html.Comment;
 }
 
 function textContents(node: html.Element): string|null {

@@ -10,6 +10,8 @@
 // about state in an instruction are correct before implementing any logic.
 // They are meant only to be called in dev mode as sanity checks.
 
+import {getActiveConsumer} from '@angular/core/primitives/signals';
+
 import {stringify} from './stringify';
 
 export function assertNumber(actual: any, msg: string): asserts actual is number {
@@ -112,6 +114,12 @@ export function assertDomNode(node: any): asserts node is Node {
   }
 }
 
+export function assertElement(node: any): asserts node is Element {
+  if (!(node instanceof Element)) {
+    throwError(`The provided value must be an element but got ${stringify(node)}`);
+  }
+}
+
 export function assertIndexInRange(arr: any[], index: number) {
   assertDefined(arr, 'Array must be defined.');
   const maxLen = arr.length;
@@ -124,4 +132,10 @@ export function assertOneOf(value: any, ...validValues: any[]) {
   if (validValues.indexOf(value) !== -1) return true;
   throwError(`Expected value to be one of ${JSON.stringify(validValues)} but was ${
       JSON.stringify(value)}.`);
+}
+
+export function assertNotReactive(fn: string): void {
+  if (getActiveConsumer() !== null) {
+    throwError(`${fn}() should never be called in a reactive context.`);
+  }
 }

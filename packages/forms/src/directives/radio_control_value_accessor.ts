@@ -6,13 +6,13 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, ElementRef, forwardRef, inject, Injectable, Injector, Input, NgModule, OnDestroy, OnInit, Provider, Renderer2, ɵRuntimeError as RuntimeError} from '@angular/core';
+import {Directive, ElementRef, forwardRef, inject, Injectable, Injector, Input, OnDestroy, OnInit, Provider, Renderer2, ɵRuntimeError as RuntimeError} from '@angular/core';
 
 import {RuntimeErrorCode} from '../errors';
 
 import {BuiltInControlValueAccessor, ControlValueAccessor, NG_VALUE_ACCESSOR} from './control_value_accessor';
 import {NgControl} from './ng_control';
-import {CALL_SET_DISABLED_STATE, setDisabledStateDefault, SetDisabledStateOption} from './shared';
+import {CALL_SET_DISABLED_STATE, setDisabledStateDefault} from './shared';
 
 const RADIO_VALUE_ACCESSOR: Provider = {
   provide: NG_VALUE_ACCESSOR,
@@ -28,20 +28,10 @@ function throwNameError() {
 }
 
 /**
- * Internal-only NgModule that works as a host for the `RadioControlRegistry` tree-shakable
- * provider. Note: the `InternalFormsSharedModule` can not be used here directly, since it's
- * declared *after* the `RadioControlRegistry` class and the `providedIn` doesn't support
- * `forwardRef` logic.
- */
-@NgModule()
-export class RadioControlRegistryModule {
-}
-
-/**
  * @description
  * Class used by Angular to track radio buttons. For internal use only.
  */
-@Injectable({providedIn: RadioControlRegistryModule})
+@Injectable({providedIn: 'root'})
 export class RadioControlRegistry {
   private _accessors: any[] = [];
 
@@ -207,7 +197,7 @@ export class RadioControlValueAccessor extends BuiltInControlValueAccessor imple
      * when an *enabled* control was attached. This bug was fixed in v15 in #47576.
      *
      * This had a side effect: previously, it was possible to instantiate a reactive form control
-     * with `[attr.disabled]=true`, even though the the corresponding control was enabled in the
+     * with `[attr.disabled]=true`, even though the corresponding control was enabled in the
      * model. This resulted in a mismatch between the model and the DOM. Now, because
      * `setDisabledState` is always called, the value in the DOM will be immediately overwritten
      * with the "correct" enabled value.

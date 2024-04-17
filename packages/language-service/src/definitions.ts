@@ -10,14 +10,13 @@ import {AST, TmplAstBoundAttribute, TmplAstBoundEvent, TmplAstElement, TmplAstNo
 import {NgCompiler} from '@angular/compiler-cli/src/ngtsc/core';
 import {absoluteFrom} from '@angular/compiler-cli/src/ngtsc/file_system';
 import {isExternalResource} from '@angular/compiler-cli/src/ngtsc/metadata';
-import {ProgramDriver} from '@angular/compiler-cli/src/ngtsc/program_driver';
 import {DirectiveSymbol, DomBindingSymbol, ElementSymbol, Symbol, SymbolKind, TcbLocation, TemplateSymbol} from '@angular/compiler-cli/src/ngtsc/typecheck/api';
 import ts from 'typescript';
 
 import {convertToTemplateDocumentSpan} from './references_and_rename_utils';
 import {getTargetAtPosition, TargetNodeKind} from './template_target';
 import {findTightestNode, getParentClassDeclaration} from './ts_utils';
-import {flatMap, getDirectiveMatchesForAttribute, getDirectiveMatchesForElementTag, getTemplateInfoAtPosition, getTemplateLocationFromTcbLocation, getTextSpanOfNode, isDollarEvent, isTypeScriptFile, TemplateInfo, toTextSpan} from './utils';
+import {getDirectiveMatchesForAttribute, getDirectiveMatchesForElementTag, getTemplateInfoAtPosition, getTemplateLocationFromTcbLocation, getTextSpanOfNode, isDollarEvent, isTypeScriptFile, TemplateInfo, toTextSpan} from './utils';
 
 interface DefinitionMeta {
   node: AST|TmplAstNode;
@@ -32,9 +31,7 @@ interface HasTcbLocation {
 export class DefinitionBuilder {
   private readonly ttc = this.compiler.getTemplateTypeChecker();
 
-  constructor(
-      private readonly tsLS: ts.LanguageService, private readonly compiler: NgCompiler,
-      private readonly driver: ProgramDriver) {}
+  constructor(private readonly tsLS: ts.LanguageService, private readonly compiler: NgCompiler) {}
 
   getDefinitionAndBoundSpan(fileName: string, position: number): ts.DefinitionInfoAndBoundSpan
       |undefined {
@@ -48,7 +45,9 @@ export class DefinitionBuilder {
       }
       return getDefinitionForExpressionAtPosition(fileName, position, this.compiler);
     }
+
     const definitionMetas = this.getDefinitionMetaAtPosition(templateInfo, position);
+
     if (definitionMetas === undefined) {
       return undefined;
     }
@@ -65,6 +64,7 @@ export class DefinitionBuilder {
       definitions.push(
           ...(this.getDefinitionsForSymbol({...definitionMeta, ...templateInfo}) ?? []));
     }
+
 
     if (definitions.length === 0) {
       return undefined;
@@ -137,7 +137,7 @@ export class DefinitionBuilder {
   }
 
   private getDefinitionsForSymbols(...symbols: HasTcbLocation[]): ts.DefinitionInfo[] {
-    return flatMap(symbols, ({tcbLocation}) => {
+    return symbols.flatMap(({tcbLocation}) => {
       const {tcbPath, positionInFile} = tcbLocation;
       const definitionInfos = this.tsLS.getDefinitionAtPosition(tcbPath, positionInFile);
       if (definitionInfos === undefined) {
@@ -157,7 +157,7 @@ export class DefinitionBuilder {
     for (const info of definitionInfos) {
       if (this.ttc.isTrackedTypeCheckFile(absoluteFrom(info.fileName))) {
         const templateDefinitionInfo =
-            convertToTemplateDocumentSpan(info, this.ttc, this.driver.getProgram());
+            convertToTemplateDocumentSpan(info, this.ttc, this.compiler.getCurrentProgram());
         if (templateDefinitionInfo === null) {
           continue;
         }
@@ -173,7 +173,7 @@ export class DefinitionBuilder {
       readonly ts.DefinitionInfo[]|undefined {
     const templateInfo = getTemplateInfoAtPosition(fileName, position, this.compiler);
     if (templateInfo === undefined) {
-      return;
+      return undefined;
     }
     const definitionMetas = this.getDefinitionMetaAtPosition(templateInfo, position);
     if (definitionMetas === undefined) {
@@ -225,6 +225,7 @@ export class DefinitionBuilder {
       }
       return definitions;
     }
+    return undefined;
   }
 
   private getTypeDefinitionsForTemplateInstance(
@@ -279,7 +280,7 @@ export class DefinitionBuilder {
   }
 
   private getTypeDefinitionsForSymbols(...symbols: HasTcbLocation[]): ts.DefinitionInfo[] {
-    return flatMap(symbols, ({tcbLocation}) => {
+    return symbols.flatMap(({tcbLocation}) => {
       const {tcbPath, positionInFile} = tcbLocation;
       return this.tsLS.getTypeDefinitionAtPosition(tcbPath, positionInFile) ?? [];
     });

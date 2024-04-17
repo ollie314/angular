@@ -10,13 +10,15 @@ import '../util/ng_dev_mode';
 
 import {RuntimeError, RuntimeErrorCode} from '../errors';
 import {Type} from '../interface/type';
+import {emitInjectEvent} from '../render3/debug/injector_profiler';
 import {stringify} from '../util/stringify';
 
 import {resolveForwardRef} from './forward_ref';
 import {getInjectImplementation, injectRootLimpMode} from './inject_switch';
-import {Injector} from './injector';
+import type {Injector} from './injector';
 import {DecoratorFlags, InjectFlags, InjectOptions, InternalInjectFlags} from './interface/injector';
 import {ProviderToken} from './provider_token';
+import type {HostAttributeToken} from './host_attribute_token';
 
 
 const _THROW_IF_NOT_FOUND = {};
@@ -65,7 +67,10 @@ export function injectInjectorOnly<T>(token: ProviderToken<T>, flags = InjectFla
   } else if (_currentInjector === null) {
     return injectRootLimpMode(token, undefined, flags);
   } else {
-    return _currentInjector.get(token, flags & InjectFlags.Optional ? null : undefined, flags);
+    const value =
+        _currentInjector.get(token, flags & InjectFlags.Optional ? null : undefined, flags);
+    ngDevMode && emitInjectEvent(token as Type<unknown>, value, flags);
+    return value;
   }
 }
 
@@ -81,8 +86,14 @@ export function injectInjectorOnly<T>(token: ProviderToken<T>, flags = InjectFla
  */
 export function ɵɵinject<T>(token: ProviderToken<T>): T;
 export function ɵɵinject<T>(token: ProviderToken<T>, flags?: InjectFlags): T|null;
-export function ɵɵinject<T>(token: ProviderToken<T>, flags = InjectFlags.Default): T|null {
-  return (getInjectImplementation() || injectInjectorOnly)(resolveForwardRef(token), flags);
+export function ɵɵinject(token: HostAttributeToken): string;
+export function ɵɵinject(token: HostAttributeToken, flags?: InjectFlags): string|null;
+export function ɵɵinject<T>(
+    token: ProviderToken<T>|HostAttributeToken, flags?: InjectFlags): string|null;
+export function ɵɵinject<T>(
+    token: ProviderToken<T>|HostAttributeToken, flags = InjectFlags.Default): T|null {
+  return (getInjectImplementation() || injectInjectorOnly)(
+      resolveForwardRef(token as Type<T>), flags);
 }
 
 /**
@@ -150,14 +161,39 @@ export function inject<T>(token: ProviderToken<T>, options: InjectOptions&{optio
  */
 export function inject<T>(token: ProviderToken<T>, options: InjectOptions): T|null;
 /**
+ * @param token A token that represents a static attribute on the host node that should be injected.
+ * @returns Value of the attribute if it exists.
+ * @throws If called outside of a supported context or the attribute does not exist.
+ *
+ * @publicApi
+ */
+export function inject(token: HostAttributeToken): string;
+/**
+ * @param token A token that represents a static attribute on the host node that should be injected.
+ * @returns Value of the attribute if it exists, otherwise `null`.
+ * @throws If called outside of a supported context.
+ *
+ * @publicApi
+ */
+export function inject(token: HostAttributeToken, options: {optional: true}): string|null;
+/**
+ * @param token A token that represents a static attribute on the host node that should be injected.
+ * @returns Value of the attribute if it exists.
+ * @throws If called outside of a supported context or the attribute does not exist.
+ *
+ * @publicApi
+ */
+export function inject(token: HostAttributeToken, options: {optional: false}): string;
+/**
  * Injects a token from the currently active injector.
- * `inject` is only supported during instantiation of a dependency by the DI system. It can be used
- * during:
+ * `inject` is only supported in an [injection context](guide/di/dependency-injection-context). It
+ * can be used during:
  * - Construction (via the `constructor`) of a class being instantiated by the DI system, such
  * as an `@Injectable` or `@Component`.
  * - In the initializer for fields of such classes.
  * - In the factory function specified for `useFactory` of a `Provider` or an `@Injectable`.
  * - In the `factory` function specified for an `InjectionToken`.
+ * - In a stackframe of a function call in a DI context
  *
  * @param token A token that represents a dependency that should be injected.
  * @param flags Optional flags that control how injection is executed.
@@ -214,8 +250,11 @@ export function inject<T>(token: ProviderToken<T>, options: InjectOptions): T|nu
  * @publicApi
  */
 export function inject<T>(
-    token: ProviderToken<T>, flags: InjectFlags|InjectOptions = InjectFlags.Default): T|null {
-  return ɵɵinject(token, convertToBitFlags(flags));
+    token: ProviderToken<T>|HostAttributeToken,
+    flags: InjectFlags|InjectOptions = InjectFlags.Default) {
+  // The `as any` here _shouldn't_ be necessary, but without it JSCompiler
+  // throws a disambiguation  error due to the multiple signatures.
+  return ɵɵinject(token as any, convertToBitFlags(flags));
 }
 
 // Converts object-based DI flags (`InjectOptions`) to bit flags (`InjectFlags`).

@@ -19,6 +19,8 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     APPLICATION_REF_ALREADY_DESTROYED = 406,
     // (undocumented)
+    ASSERTION_NOT_INSIDE_REACTIVE_CONTEXT = -602,
+    // (undocumented)
     ASYNC_INITIALIZERS_STILL_RUNNING = 405,
     // (undocumented)
     BOOTSTRAP_COMPONENTS_NOT_FOUND = -403,
@@ -27,7 +29,9 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     CYCLIC_DI_DEPENDENCY = -200,
     // (undocumented)
-    DUPLICATE_DIRECTITVE = 309,
+    DEFER_LOADING_FAILED = 750,
+    // (undocumented)
+    DUPLICATE_DIRECTIVE = 309,
     // (undocumented)
     EXPORT_NOT_FOUND = -301,
     // (undocumented)
@@ -51,7 +55,11 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     HYDRATION_STABLE_TIMEDOUT = -506,
     // (undocumented)
+    IMAGE_PERFORMANCE_WARNING = -913,
+    // (undocumented)
     IMPORT_PROVIDERS_FROM_STANDALONE = 800,
+    // (undocumented)
+    INFINITE_CHANGE_DETECTION = 103,
     // (undocumented)
     INJECTOR_ALREADY_DESTROYED = 205,
     // (undocumented)
@@ -85,13 +93,19 @@ export const enum RuntimeErrorCode {
     // (undocumented)
     MISSING_REQUIRED_INJECTABLE_IN_BOOTSTRAP = 402,
     // (undocumented)
+    MISSING_SSR_CONTENT_INTEGRITY_MARKER = -507,
+    // (undocumented)
     MISSING_ZONEJS = 908,
     // (undocumented)
     MULTIPLE_COMPONENTS_MATCH = -300,
     // (undocumented)
+    MULTIPLE_MATCHING_PIPES = 313,
+    // (undocumented)
     MULTIPLE_PLATFORMS = 400,
     // (undocumented)
     NO_SUPPORTING_DIFFER_FACTORY = 901,
+    // (undocumented)
+    OUTPUT_REF_DESTROYED = 953,
     // (undocumented)
     PIPE_NOT_FOUND = -302,
     // (undocumented)
@@ -108,6 +122,16 @@ export const enum RuntimeErrorCode {
     RENDERER_NOT_FOUND = 407,
     // (undocumented)
     REQUIRE_SYNC_WITHOUT_SYNC_EMIT = 601,
+    // (undocumented)
+    REQUIRED_INPUT_NO_VALUE = -950,
+    // (undocumented)
+    REQUIRED_MODEL_NO_VALUE = -952,
+    // (undocumented)
+    REQUIRED_QUERY_NO_VALUE = -951,
+    // (undocumented)
+    RUNTIME_DEPS_INVALID_IMPORTED_TYPE = 1000,
+    // (undocumented)
+    RUNTIME_DEPS_ORPHAN_COMPONENT = 1001,
     // (undocumented)
     SIGNAL_WRITE_FROM_ILLEGAL_CONTEXT = 600,
     // (undocumented)

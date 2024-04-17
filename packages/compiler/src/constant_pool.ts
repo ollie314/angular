@@ -92,6 +92,14 @@ export class ConstantPool {
   private literalFactories = new Map<string, o.Expression>();
   private sharedConstants = new Map<string, o.Expression>();
 
+  /**
+   * Constant pool also tracks claimed names from {@link uniqueName}.
+   * This is useful to avoid collisions if variables are intended to be
+   * named a certain way- but may conflict. We wouldn't want to always suffix
+   * them with unique numbers.
+   */
+  private _claimedNames = new Map<string, number>();
+
   private nextNameIndex = 0;
 
   constructor(private readonly isClosureCompilerEnabled: boolean = false) {}
@@ -188,6 +196,36 @@ export class ConstantPool {
     }
   }
 
+  // TODO: useUniqueName(false) is necessary for naming compatibility with
+  // TemplateDefinitionBuilder, but should be removed once Template Pipeline is the default.
+  getSharedFunctionReference(fn: o.Expression, prefix: string, useUniqueName: boolean = true):
+      o.Expression {
+    const isArrow = fn instanceof o.ArrowFunctionExpr;
+
+    for (const current of this.statements) {
+      // Arrow functions are saved as variables so we check if the
+      // value of the variable is the same as the arrow function.
+      if (isArrow && current instanceof o.DeclareVarStmt && current.value?.isEquivalent(fn)) {
+        return o.variable(current.name);
+      }
+
+      // Function declarations are saved as function statements
+      // so we compare them directly to the passed-in function.
+      if (!isArrow && current instanceof o.DeclareFunctionStmt && fn instanceof o.FunctionExpr &&
+          fn.isEquivalent(current)) {
+        return o.variable(current.name);
+      }
+    }
+
+    // Otherwise declare the function.
+    const name = useUniqueName ? this.uniqueName(prefix) : prefix;
+    this.statements.push(
+        fn instanceof o.FunctionExpr ?
+            fn.toDeclStmt(name, o.StmtModifier.Final) :
+            new o.DeclareVarStmt(name, fn, o.INFERRED_TYPE, o.StmtModifier.Final, fn.sourceSpan));
+    return o.variable(name);
+  }
+
   private _getLiteralFactory(
       key: string, values: o.Expression[], resultMap: (parameters: o.Expression[]) => o.Expression):
       {literalFactory: o.Expression, literalFactoryArguments: o.Expression[]} {
@@ -199,7 +237,7 @@ export class ConstantPool {
       const parameters =
           resultExpressions.filter(isVariable).map(e => new o.FnParam(e.name!, o.DYNAMIC_TYPE));
       const pureFunctionDeclaration =
-          o.fn(parameters, [new o.ReturnStatement(resultMap(resultExpressions))], o.INFERRED_TYPE);
+          o.arrowFn(parameters, resultMap(resultExpressions), o.INFERRED_TYPE);
       const name = this.freshName();
       this.statements.push(o.variable(name)
                                .set(pureFunctionDeclaration)
@@ -211,14 +249,18 @@ export class ConstantPool {
   }
 
   /**
-   * Produce a unique name.
+   * Produce a unique name in the context of this pool.
    *
    * The name might be unique among different prefixes if any of the prefixes end in
    * a digit so the prefix should be a constant string (not based on user input) and
    * must not end in a digit.
    */
-  uniqueName(prefix: string): string {
-    return `${prefix}${this.nextNameIndex++}`;
+  uniqueName(name: string, alwaysIncludeSuffix = true): string {
+    const count = this._claimedNames.get(name) ?? 0;
+    const result = count === 0 && !alwaysIncludeSuffix ? `${name}` : `${name}${count}`;
+
+    this._claimedNames.set(name, count + 1);
+    return result;
   }
 
   private freshName(): string {

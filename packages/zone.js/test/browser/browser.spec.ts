@@ -431,12 +431,11 @@ describe('Zone', function() {
             }
 
             function isPropertiesPatched(obj: any, properties: string[]|null, prototype?: any) {
-              if (!properties) {
-                return [];
-              }
-              for (let i = 0; i < properties.length; i++) {
-                if (!isPropertyPatched(obj, 'on' + properties[i], prototype)) {
-                  fail(`${properties[i]} is not patched on ${obj}`);
+              if (properties) {
+                for (let i = 0; i < properties.length; i++) {
+                  if (!isPropertyPatched(obj, 'on' + properties[i], prototype)) {
+                    fail(`${properties[i]} is not patched on ${obj}`);
+                  }
                 }
               }
             }
@@ -800,7 +799,7 @@ describe('Zone', function() {
                expect(testFn).not.toThrow();
              }));
 
-          it('window.onerror callback signiture should be (message, source, lineno, colno, error)',
+          it('window.onerror callback signature should be (message, source, lineno, colno, error)',
              ifEnvSupportsWithDone(canPatchOnProperty(window, 'onerror'), function(done: DoneFn) {
                const oriOnError = window.onerror;
                let testError = new Error('testError');
@@ -1321,7 +1320,7 @@ describe('Zone', function() {
          }));
 
 
-      it('should support add multipe listeners with AddEventListenerOptions once setting and same capture after normal listener',
+      it('should support add multiple listeners with AddEventListenerOptions once setting and same capture after normal listener',
          ifEnvSupports(supportEventListenerOptions, function() {
            let logs: string[] = [];
 
@@ -1343,7 +1342,7 @@ describe('Zone', function() {
            expect(logs).toEqual(['click']);
          }));
 
-      it('should support add multipe listeners with AddEventListenerOptions once setting and mixed capture after normal listener',
+      it('should support add multiple listeners with AddEventListenerOptions once setting and mixed capture after normal listener',
          ifEnvSupports(supportEventListenerOptions, function() {
            let logs: string[] = [];
 
@@ -1365,7 +1364,7 @@ describe('Zone', function() {
            expect(logs).toEqual(['click']);
          }));
 
-      it('should support add multipe listeners with AddEventListenerOptions once setting before normal listener',
+      it('should support add multiple listeners with AddEventListenerOptions once setting before normal listener',
          ifEnvSupports(supportEventListenerOptions, function() {
            let logs: string[] = [];
 
@@ -1388,7 +1387,7 @@ describe('Zone', function() {
            expect(logs).toEqual(['click']);
          }));
 
-      it('should support add multipe listeners with AddEventListenerOptions once setting with same capture before normal listener',
+      it('should support add multiple listeners with AddEventListenerOptions once setting with same capture before normal listener',
          ifEnvSupports(supportEventListenerOptions, function() {
            let logs: string[] = [];
 
@@ -1411,7 +1410,7 @@ describe('Zone', function() {
            expect(logs).toEqual(['click']);
          }));
 
-      it('should support add multipe listeners with AddEventListenerOptions once setting with mixed capture before normal listener',
+      it('should support add multiple listeners with AddEventListenerOptions once setting with mixed capture before normal listener',
          ifEnvSupports(supportEventListenerOptions, function() {
            let logs: string[] = [];
 
@@ -1763,6 +1762,194 @@ describe('Zone', function() {
            expect(logs).toEqual(['click2']);
          });
 
+      it('should support remove event listeners via AbortController', function() {
+        let logs: string[] = [];
+        const ac = new AbortController();
+
+        button.addEventListener('click', function() {
+          logs.push('click1');
+        }, {signal: ac.signal});
+        button.addEventListener('click', function() {
+          logs.push('click2');
+        });
+        button.addEventListener('click', function() {
+          logs.push('click3');
+        }, {signal: ac.signal});
+        let listeners = button.eventListeners!('click');
+        expect(listeners.length).toBe(3);
+
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(3);
+        expect(logs).toEqual(['click1', 'click2', 'click3']);
+        ac.abort();
+        logs = [];
+
+        listeners = button.eventListeners!('click');
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(1);
+        expect(listeners.length).toBe(1);
+        expect(logs).toEqual(['click2']);
+      });
+
+      it('should support remove event listeners with AbortController', function() {
+        let logs: string[] = [];
+        const ac = new AbortController();
+
+        const listener1 = function() {
+          logs.push('click1');
+        };
+        button.addEventListener('click', listener1, {signal: ac.signal});
+        button.addEventListener('click', function() {
+          logs.push('click2');
+        });
+        let listeners = button.eventListeners!('click');
+        expect(listeners.length).toBe(2);
+
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(2);
+        expect(logs).toEqual(['click1', 'click2']);
+
+        ac.abort();
+        listeners = button.eventListeners!('click');
+        expect(listeners.length).toBe(1);
+
+        logs = [];
+
+        listeners = button.eventListeners!('click');
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(1);
+        expect(listeners.length).toBe(1);
+        expect(logs).toEqual(['click2']);
+      });
+
+      it('should not break remove event listeners with AbortController', function() {
+        let logs: string[] = [];
+        const ac = new AbortController();
+
+        const listener1 = function() {
+          logs.push('click1');
+        };
+        button.addEventListener('click', listener1, {signal: ac.signal});
+        button.addEventListener('click', function() {
+          logs.push('click2');
+        });
+        let listeners = button.eventListeners!('click');
+        expect(listeners.length).toBe(2);
+
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(2);
+        expect(logs).toEqual(['click1', 'click2']);
+
+        button.removeEventListener('click', listener1);
+        listeners = button.eventListeners!('click');
+        expect(listeners.length).toBe(1);
+
+        logs = [];
+
+        listeners = button.eventListeners!('click');
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(1);
+        expect(listeners.length).toBe(1);
+        expect(logs).toEqual(['click2']);
+      });
+
+      it('should support remove multiple event listeners with the same AbortController',
+         function() {
+           let logs: string[] = [];
+           const ac = new AbortController();
+           const button1 = document.createElement('button');
+           const keyEvent: any = document.createEvent('KeyboardEvent');
+           keyEvent.initKeyboardEvent(
+               'keypress',  // typeArg,
+               true,        // canBubbleArg,
+               true,        // cancelableArg,
+               null,        // viewArg, Specifies UIEvent.view. This value may be null.
+               '',
+               0,
+               false,  // ctrlKeyArg,
+               false,  // altKeyArg,
+               false,  // shiftKeyArg,
+               false,  // metaKeyArg,
+           );
+           document.body.appendChild(button1);
+
+           const listener1 = function() {
+             logs.push('click1');
+           };
+           button.addEventListener('click', listener1, {signal: ac.signal});
+           button.addEventListener('click', function() {
+             logs.push('click2');
+           });
+           button1.addEventListener('keypress', () => logs.push('click3'), {signal: ac.signal});
+           button1.addEventListener('keypress', function() {
+             logs.push('click4');
+           });
+           let listeners = button.eventListeners!('click');
+           expect(listeners.length).toBe(2);
+
+           button.dispatchEvent(clickEvent);
+           expect(logs.length).toBe(2);
+           expect(logs).toEqual(['click1', 'click2']);
+           button1.dispatchEvent(keyEvent);
+           expect(logs.length).toBe(4);
+           expect(logs).toEqual(['click1', 'click2', 'click3', 'click4']);
+
+           logs = [];
+           ac.abort();
+           listeners = button.eventListeners!('click');
+           button.dispatchEvent(clickEvent);
+           expect(logs.length).toBe(1);
+           expect(listeners.length).toBe(1);
+           expect(logs).toEqual(['click2']);
+           button1.dispatchEvent(keyEvent);
+           expect(logs.length).toBe(2);
+           expect(logs).toEqual(['click2', 'click4']);
+         });
+
+      it('should not add event listeners with aborted signal', function() {
+        let logs: string[] = [];
+
+        button.addEventListener('click', function() {
+          logs.push('click1');
+        }, {signal: AbortSignal.abort()});
+        button.addEventListener('click', function() {
+          logs.push('click2');
+        });
+        let listeners = button.eventListeners!('click');
+        expect(listeners.length).toBe(1);
+
+        button.dispatchEvent(clickEvent);
+        expect(logs.length).toBe(1);
+        expect(logs).toEqual(['click2']);
+      });
+
+      it('should remove event listeners with timeout signal',
+         ifEnvSupportsWithDone(
+             () => typeof AbortSignal.timeout === 'function', function(done: DoneFn) {
+               let logs: string[] = [];
+
+               button.addEventListener('click', function() {
+                 logs.push('click1');
+               }, {signal: AbortSignal.timeout(1)});
+               button.addEventListener('click', function() {
+                 logs.push('click2');
+               });
+               let listeners = button.eventListeners!('click');
+               expect(listeners.length).toBe(2);
+
+               button.dispatchEvent(clickEvent);
+               expect(logs.length).toBe(2);
+               expect(logs).toEqual(['click1', 'click2']);
+
+               setTimeout(() => {
+                 logs = [];
+                 button.dispatchEvent(clickEvent);
+                 expect(logs.length).toBe(1);
+                 expect(logs).toEqual(['click2']);
+                 done();
+               }, 10);
+             }));
+
       it('should support reschedule eventTask',
          ifEnvSupports(supportEventListenerOptions, function() {
            let hookSpy1 = jasmine.createSpy('spy1');
@@ -1857,6 +2044,41 @@ describe('Zone', function() {
           button.setAttribute('onclick', 'return');
           expect(button.onclick).not.toBe(null);
         });
+      });
+
+      it('should not remove onEventListener when removing capture listener', function() {
+        const button = document.createElement('button');
+        document.body.append(button);
+        const createEvt = () => {
+          const evt = document.createEvent('Event');
+          evt.initEvent('click', true, true);
+          return evt;
+        };
+        let logs: string[] = [];
+        const onClickHandler = () => logs.push('onclick');
+        button.onclick = onClickHandler;
+        let evt = createEvt();
+        button.dispatchEvent(evt);
+        expect(logs).toEqual(['onclick']);
+        logs = [];
+        const listener = () => logs.push('click listener');
+        button.addEventListener('click', listener, {capture: true});
+        evt = createEvt();
+        button.dispatchEvent(evt);
+        expect(logs.sort()).toEqual(['onclick', 'click listener'].sort());
+        logs = [];
+        button.removeEventListener('click', listener, true);
+        evt = createEvt();
+        button.dispatchEvent(evt);
+        expect(logs).toEqual(['onclick']);
+        expect(button.onclick).toBe(onClickHandler);
+        button.onclick = null;
+        logs = [];
+        evt = createEvt();
+        button.dispatchEvent(evt);
+        expect(logs).toEqual([]);
+        expect(button.onclick).toBe(null);
+        document.body.removeChild(button);
       });
 
       describe('should be able to remove eventListener during eventListener callback', function() {
@@ -2706,7 +2928,7 @@ describe('Zone', function() {
            button.addEventListener('click', listener4, true);
 
            button.removeAllListeners!('mouseover');
-           const listeners = button.eventListeners!('mouseove');
+           const listeners = button.eventListeners!('mouseover');
            expect(listeners.length).toBe(0);
 
            const mouseEvent = document.createEvent('Event');

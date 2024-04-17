@@ -6,15 +6,12 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {merge, Observable, Observer, Subscription} from 'rxjs';
-import {share} from 'rxjs/operators';
 
-import {inject, InjectionToken} from '../di';
 import {RuntimeError, RuntimeErrorCode} from '../errors';
 import {EventEmitter} from '../event_emitter';
+import {scheduleCallback} from '../util/callback_scheduler';
 import {global} from '../util/global';
 import {noop} from '../util/noop';
-import {getNativeRequestAnimationFrame} from '../util/raf';
 
 import {AsyncStackTaggingZoneSpec} from './async-stack-tagging';
 
@@ -167,16 +164,22 @@ export class NgZone {
     self.shouldCoalesceEventChangeDetection =
         !shouldCoalesceRunChangeDetection && shouldCoalesceEventChangeDetection;
     self.shouldCoalesceRunChangeDetection = shouldCoalesceRunChangeDetection;
-    self.lastRequestAnimationFrameId = -1;
-    self.nativeRequestAnimationFrame = getNativeRequestAnimationFrame().nativeRequestAnimationFrame;
+    self.callbackScheduled = false;
+    self.scheduleCallback = scheduleCallback;
     forkInnerZoneWithAngularBehavior(self);
   }
 
+  /**
+    This method checks whether the method call happens within an Angular Zone instance.
+  */
   static isInAngularZone(): boolean {
     // Zone needs to be checked, because this method might be called even when NoopNgZone is used.
     return typeof Zone !== 'undefined' && Zone.current.get('isAngularZone') === true;
   }
 
+  /**
+    Assures that the method is called within the Angular Zone, otherwise throws an error.
+  */
   static assertInAngularZone(): void {
     if (!NgZone.isInAngularZone()) {
       throw new RuntimeError(
@@ -185,6 +188,9 @@ export class NgZone {
     }
   }
 
+  /**
+    Assures that the method is called outside of the Angular Zone, otherwise throws an error.
+  */
   static assertNotInAngularZone(): void {
     if (NgZone.isInAngularZone()) {
       throw new RuntimeError(
@@ -267,7 +273,7 @@ interface NgZonePrivate extends NgZone {
 
   hasPendingMacrotasks: boolean;
   hasPendingMicrotasks: boolean;
-  lastRequestAnimationFrameId: number;
+  callbackScheduled: boolean;
   /**
    * A flag to indicate if NgZone is currently inside
    * checkStable and to prevent re-entry. The flag is
@@ -319,7 +325,7 @@ interface NgZonePrivate extends NgZone {
    */
   shouldCoalesceRunChangeDetection: boolean;
 
-  nativeRequestAnimationFrame: (callback: FrameRequestCallback) => number;
+  scheduleCallback: (callback: Function) => void;
 
   // Cache a  "fake" top eventTask so you don't need to schedule a new task every
   // time you run a `checkStable`.
@@ -373,10 +379,11 @@ function delayChangeDetectionForEvents(zone: NgZonePrivate) {
    * so we also need to check the _nesting here to prevent multiple
    * change detections.
    */
-  if (zone.isCheckStableRunning || zone.lastRequestAnimationFrameId !== -1) {
+  if (zone.isCheckStableRunning || zone.callbackScheduled) {
     return;
   }
-  zone.lastRequestAnimationFrameId = zone.nativeRequestAnimationFrame.call(global, () => {
+  zone.callbackScheduled = true;
+  zone.scheduleCallback.call(global, () => {
     // This is a work around for https://github.com/angular/angular/issues/36839.
     // The core issue is that when event coalescing is enabled it is possible for microtasks
     // to get flushed too early (As is the case with `Promise.then`) between the
@@ -388,7 +395,7 @@ function delayChangeDetectionForEvents(zone: NgZonePrivate) {
     // eventTask execution.
     if (!zone.fakeTopEventTask) {
       zone.fakeTopEventTask = Zone.root.scheduleEventTask('fakeTopEventTask', () => {
-        zone.lastRequestAnimationFrameId = -1;
+        zone.callbackScheduled = false;
         updateMicroTaskStatus(zone);
         zone.isCheckStableRunning = true;
         checkStable(zone);
@@ -410,6 +417,10 @@ function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
     onInvokeTask:
         (delegate: ZoneDelegate, current: Zone, target: Zone, task: Task, applyThis: any,
          applyArgs: any): any => {
+          if (shouldBeIgnoredByZone(applyArgs)) {
+            return delegate.invokeTask(target, task, applyThis, applyArgs);
+          }
+
           try {
             onEnter(zone);
             return delegate.invokeTask(target, task, applyThis, applyArgs);
@@ -463,7 +474,7 @@ function forkInnerZoneWithAngularBehavior(zone: NgZonePrivate) {
 function updateMicroTaskStatus(zone: NgZonePrivate) {
   if (zone._hasPendingMicrotasks ||
       ((zone.shouldCoalesceEventChangeDetection || zone.shouldCoalesceRunChangeDetection) &&
-       zone.lastRequestAnimationFrameId !== -1)) {
+       zone.callbackScheduled === true)) {
     zone.hasPendingMicrotasks = true;
   } else {
     zone.hasPendingMicrotasks = false;
@@ -513,66 +524,38 @@ export class NoopNgZone implements NgZone {
   }
 }
 
-/**
- * Token used to drive ApplicationRef.isStable
- *
- * TODO: This should be moved entirely to NgZone (as a breaking change) so it can be tree-shakeable
- * for `NoopNgZone` which is always just an `Observable` of `true`. Additionally, we should consider
- * whether the property on `NgZone` should be `Observable` or `Signal`.
- */
-export const ZONE_IS_STABLE_OBSERVABLE =
-    new InjectionToken<Observable<boolean>>(ngDevMode ? 'isStable Observable' : '', {
-      providedIn: 'root',
-      // TODO(atscott): Replace this with a suitable default like `new
-      // BehaviorSubject(true).asObservable`. Again, long term this won't exist on ApplicationRef at
-      // all but until we can remove it, we need a default value zoneless.
-      factory: isStableFactory,
-    });
 
-export function isStableFactory() {
-  const zone = inject(NgZone);
-  let _stable = true;
-  const isCurrentlyStable = new Observable<boolean>((observer: Observer<boolean>) => {
-    _stable = zone.isStable && !zone.hasPendingMacrotasks && !zone.hasPendingMicrotasks;
-    zone.runOutsideAngular(() => {
-      observer.next(_stable);
-      observer.complete();
-    });
-  });
+function shouldBeIgnoredByZone(applyArgs: unknown): boolean {
+  if (!Array.isArray(applyArgs)) {
+    return false;
+  }
 
-  const isStable = new Observable<boolean>((observer: Observer<boolean>) => {
-    // Create the subscription to onStable outside the Angular Zone so that
-    // the callback is run outside the Angular Zone.
-    let stableSub: Subscription;
-    zone.runOutsideAngular(() => {
-      stableSub = zone.onStable.subscribe(() => {
-        NgZone.assertNotInAngularZone();
+  // We should only ever get 1 arg passed through to invokeTask.
+  // Short circuit here incase that behavior changes.
+  if (applyArgs.length !== 1) {
+    return false;
+  }
 
-        // Check whether there are no pending macro/micro tasks in the next tick
-        // to allow for NgZone to update the state.
-        queueMicrotask(() => {
-          if (!_stable && !zone.hasPendingMacrotasks && !zone.hasPendingMicrotasks) {
-            _stable = true;
-            observer.next(true);
-          }
-        });
-      });
-    });
+  // Prevent triggering change detection when the __ignore_ng_zone__ flag is detected.
+  return applyArgs[0].data?.['__ignore_ng_zone__'] === true;
+}
 
-    const unstableSub: Subscription = zone.onUnstable.subscribe(() => {
-      NgZone.assertInAngularZone();
-      if (_stable) {
-        _stable = false;
-        zone.runOutsideAngular(() => {
-          observer.next(false);
-        });
-      }
-    });
 
-    return () => {
-      stableSub.unsubscribe();
-      unstableSub.unsubscribe();
-    };
-  });
-  return merge(isCurrentlyStable, isStable.pipe(share()));
+// Set of options recognized by the NgZone.
+export interface InternalNgZoneOptions {
+  enableLongStackTrace: boolean;
+  shouldCoalesceEventChangeDetection: boolean;
+  shouldCoalesceRunChangeDetection: boolean;
+}
+
+
+export function getNgZone(
+    ngZoneToUse: NgZone|'zone.js'|'noop' = 'zone.js', options: InternalNgZoneOptions): NgZone {
+  if (ngZoneToUse === 'noop') {
+    return new NoopNgZone();
+  }
+  if (ngZoneToUse === 'zone.js') {
+    return new NgZone(options);
+  }
+  return ngZoneToUse;
 }

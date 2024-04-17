@@ -17,7 +17,10 @@ import {ComplianceTest} from '../test_helpers/get_compliance_tests';
 import {parseGoldenPartial} from '../test_helpers/golden_partials';
 import {runTests} from '../test_helpers/test_runner';
 
-runTests('linked compile', linkPartials);
+runTests('linked compile', linkPartials, {
+  // TODO: Remove when https://github.com/angular/angular/issues/51647 is resolved.
+  skipMappingChecks: true,
+});
 
 /**
  * Link all the partials specified in the given `test`.
@@ -32,7 +35,7 @@ function linkPartials(fileSystem: FileSystem, test: ComplianceTest): CompileResu
   const linkerPlugin = createEs2015LinkerPlugin({
     fileSystem,
     logger,
-    sourceMapping: test.compilerOptions?.sourceMap === true,
+    sourceMapping: test.compilerOptions?.['sourceMap'] === true,
     ...test.angularCompilerOptions
   });
   const goldenPartialPath = fileSystem.resolve('/GOLDEN_PARTIAL.js');

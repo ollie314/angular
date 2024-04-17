@@ -14,7 +14,7 @@ import {DirectiveDef} from './interfaces/definition';
 import {TNode, TNodeType} from './interfaces/node';
 import {CONTEXT, DECLARATION_VIEW, HEADER_OFFSET, LView, OpaqueViewState, T_HOST, TData, TVIEW, TView, TViewType} from './interfaces/view';
 import {MATH_ML_NAMESPACE, SVG_NAMESPACE} from './namespaces';
-import {getTNode} from './util/view_utils';
+import {getTNode, walkUpViews} from './util/view_utils';
 
 
 /**
@@ -201,6 +201,13 @@ const instructionState: InstructionState = {
  * changes exist in the change detector or its children.
  */
 let _isInCheckNoChangesMode = false;
+
+/**
+ * Flag used to indicate that we are in the middle running change detection on a view
+ *
+ * @see detectChangesInViewWhileDirty
+ */
+let _isRefreshingViews = false;
 
 /**
  * Returns true if the instruction state stack is empty.
@@ -397,6 +404,14 @@ export function isInCheckNoChangesMode(): boolean {
 export function setIsInCheckNoChangesMode(mode: boolean): void {
   !ngDevMode && throwError('Must never be called in production mode');
   _isInCheckNoChangesMode = mode;
+}
+
+export function isRefreshingViews(): boolean {
+  return _isRefreshingViews;
+}
+
+export function setIsRefreshingViews(mode: boolean): void {
+  _isRefreshingViews = mode;
 }
 
 // top level variables should not be exported for performance reasons (PERF_NOTES.md)
@@ -697,18 +712,6 @@ export function nextContextImpl<T = any>(level: number): T {
   const contextLView = instructionState.lFrame.contextLView =
       walkUpViews(level, instructionState.lFrame.contextLView!);
   return contextLView[CONTEXT] as unknown as T;
-}
-
-function walkUpViews(nestingLevel: number, currentView: LView): LView {
-  while (nestingLevel > 0) {
-    ngDevMode &&
-        assertDefined(
-            currentView[DECLARATION_VIEW],
-            'Declaration view should be defined if nesting level is greater than 0.');
-    currentView = currentView[DECLARATION_VIEW]!;
-    nestingLevel--;
-  }
-  return currentView;
 }
 
 /**

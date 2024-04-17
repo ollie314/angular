@@ -14,7 +14,7 @@ import {ErrorCode, FatalDiagnosticError} from '../../diagnostics';
 import {PartialEvaluator} from '../../partial_evaluator';
 import {PerfEvent, PerfRecorder} from '../../perf';
 import {ClassDeclaration, Decorator, ReflectionHost, reflectObjectLiteral} from '../../reflection';
-import {AnalysisOutput, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult,} from '../../transform';
+import {AnalysisOutput, CompilationMode, CompileResult, DecoratorHandler, DetectResult, HandlerPrecedence, ResolveResult,} from '../../transform';
 import {checkInheritanceOfInjectable, compileDeclareFactory, CompileFactoryFn, compileNgFactoryDefField, extractClassMetadata, findAngularDecorator, getConstructorDependencies, getValidConstructorDependencies, isAngularCore, toFactoryMetadata, tryUnwrapForwardRef, unwrapConstructorDependencies, validateConstructorDependencies, wrapTypeReference,} from '../common';
 
 export interface InjectableHandlerData {
@@ -33,7 +33,7 @@ export class InjectableDecoratorHandler implements
       private reflector: ReflectionHost, private evaluator: PartialEvaluator,
       private isCore: boolean, private strictCtorDeps: boolean,
       private injectableRegistry: InjectableClassRegistry, private perf: PerfRecorder,
-      private includeClassMetadata: boolean,
+      private includeClassMetadata: boolean, private readonly compilationMode: CompilationMode,
       /**
        * What to do if the injectable already contains a ɵprov property.
        *
@@ -89,13 +89,21 @@ export class InjectableDecoratorHandler implements
   }
 
   register(node: ClassDeclaration, analysis: InjectableHandlerData): void {
+    if (this.compilationMode === CompilationMode.LOCAL) {
+      return;
+    }
+
     this.injectableRegistry.registerInjectable(node, {
       ctorDeps: analysis.ctorDeps,
     });
   }
 
-  resolve(node: ClassDeclaration, analysis: Readonly<InjectableHandlerData>, symbol: null):
+  resolve(node: ClassDeclaration, analysis: Readonly<InjectableHandlerData>):
       ResolveResult<unknown> {
+    if (this.compilationMode === CompilationMode.LOCAL) {
+      return {};
+    }
+
     if (requiresValidCtor(analysis.meta)) {
       const diagnostic = checkInheritanceOfInjectable(
           node, this.injectableRegistry, this.reflector, this.evaluator, this.strictCtorDeps,
@@ -120,6 +128,12 @@ export class InjectableDecoratorHandler implements
       CompileResult[] {
     return this.compile(
         compileDeclareFactory, compileDeclareInjectableFromMetadata, compileDeclareClassMetadata,
+        node, analysis);
+  }
+
+  compileLocal(node: ClassDeclaration, analysis: Readonly<InjectableHandlerData>): CompileResult[] {
+    return this.compile(
+        compileNgFactoryDefField, meta => compileInjectable(meta, false), compileClassMetadata,
         node, analysis);
   }
 
@@ -150,8 +164,13 @@ export class InjectableDecoratorHandler implements
     if (ɵprov === undefined) {
       // Only add a new ɵprov if there is not one already
       const res = compileInjectableFn(analysis.meta);
-      results.push(
-          {name: 'ɵprov', initializer: res.expression, statements: res.statements, type: res.type});
+      results.push({
+        name: 'ɵprov',
+        initializer: res.expression,
+        statements: res.statements,
+        type: res.type,
+        deferrableImports: null
+      });
     }
 
     return results;

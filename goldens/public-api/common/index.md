@@ -8,6 +8,8 @@ import { ChangeDetectorRef } from '@angular/core';
 import { DoCheck } from '@angular/core';
 import { ElementRef } from '@angular/core';
 import * as i0 from '@angular/core';
+import { ɵIMAGE_CONFIG as IMAGE_CONFIG } from '@angular/core';
+import { ɵImageConfig as ImageConfig } from '@angular/core';
 import { InjectionToken } from '@angular/core';
 import { Injector } from '@angular/core';
 import { IterableDiffers } from '@angular/core';
@@ -141,9 +143,9 @@ export class DatePipe implements PipeTransform {
 // @public
 export interface DatePipeConfig {
     // (undocumented)
-    dateFormat: string;
+    dateFormat?: string;
     // (undocumented)
-    timezone: string;
+    timezone?: string;
 }
 
 // @public
@@ -244,7 +246,7 @@ export function getLocaleNumberFormat(locale: string, type: NumberFormatStyle): 
 export function getLocaleNumberSymbol(locale: string, symbol: NumberSymbol): string;
 
 // @public
-export const getLocalePluralCase: (locale: string) => ((value: number) => Plural);
+export const getLocalePluralCase: (locale: string) => (value: number) => Plural;
 
 // @public
 export function getLocaleTimeFormat(locale: string, width: FormatWidth): string;
@@ -311,22 +313,19 @@ export class I18nSelectPipe implements PipeTransform {
     static ɵpipe: i0.ɵɵPipeDeclaration<I18nSelectPipe, "i18nSelect", true>;
 }
 
-// @public
-export const IMAGE_CONFIG: InjectionToken<ImageConfig>;
+export { IMAGE_CONFIG }
 
 // @public
 export const IMAGE_LOADER: InjectionToken<ImageLoader>;
 
-// @public
-export type ImageConfig = {
-    breakpoints?: number[];
-};
+export { ImageConfig }
 
 // @public
 export type ImageLoader = (config: ImageLoaderConfig) => string;
 
 // @public
 export interface ImageLoaderConfig {
+    isPlaceholder?: boolean;
     loaderParams?: {
         [key: string]: any;
     };
@@ -335,16 +334,16 @@ export interface ImageLoaderConfig {
 }
 
 // @public
+export interface ImagePlaceholderConfig {
+    // (undocumented)
+    blur?: boolean;
+}
+
+// @public
 export function isPlatformBrowser(platformId: Object): boolean;
 
 // @public
 export function isPlatformServer(platformId: Object): boolean;
-
-// @public @deprecated
-export function isPlatformWorkerApp(platformId: Object): boolean;
-
-// @public @deprecated
-export function isPlatformWorkerUi(platformId: Object): boolean;
 
 // @public
 export class JsonPipe implements PipeTransform {
@@ -475,7 +474,7 @@ export class LowerCasePipe implements PipeTransform {
 
 // @public
 export class NgClass implements DoCheck {
-    constructor(_iterableDiffers: IterableDiffers, _keyValueDiffers: KeyValueDiffers, _ngEl: ElementRef, _renderer: Renderer2);
+    constructor(_ngEl: ElementRef, _renderer: Renderer2);
     // (undocumented)
     set klass(value: string);
     // (undocumented)
@@ -491,7 +490,7 @@ export class NgClass implements DoCheck {
 }
 
 // @public
-export class NgComponentOutlet implements OnChanges, OnDestroy {
+export class NgComponentOutlet implements OnChanges, DoCheck, OnDestroy {
     constructor(_viewContainerRef: ViewContainerRef);
     // (undocumented)
     ngComponentOutlet: Type<any> | null;
@@ -500,15 +499,19 @@ export class NgComponentOutlet implements OnChanges, OnDestroy {
     // (undocumented)
     ngComponentOutletInjector?: Injector;
     // (undocumented)
+    ngComponentOutletInputs?: Record<string, unknown>;
+    // (undocumented)
     ngComponentOutletNgModule?: Type<any>;
     // @deprecated (undocumented)
     ngComponentOutletNgModuleFactory?: NgModuleFactory<any>;
+    // (undocumented)
+    ngDoCheck(): void;
     // (undocumented)
     ngOnChanges(changes: SimpleChanges): void;
     // (undocumented)
     ngOnDestroy(): void;
     // (undocumented)
-    static ɵdir: i0.ɵɵDirectiveDeclaration<NgComponentOutlet, "[ngComponentOutlet]", never, { "ngComponentOutlet": { "alias": "ngComponentOutlet"; "required": false; }; "ngComponentOutletInjector": { "alias": "ngComponentOutletInjector"; "required": false; }; "ngComponentOutletContent": { "alias": "ngComponentOutletContent"; "required": false; }; "ngComponentOutletNgModule": { "alias": "ngComponentOutletNgModule"; "required": false; }; "ngComponentOutletNgModuleFactory": { "alias": "ngComponentOutletNgModuleFactory"; "required": false; }; }, {}, never, never, true, never>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<NgComponentOutlet, "[ngComponentOutlet]", never, { "ngComponentOutlet": { "alias": "ngComponentOutlet"; "required": false; }; "ngComponentOutletInputs": { "alias": "ngComponentOutletInputs"; "required": false; }; "ngComponentOutletInjector": { "alias": "ngComponentOutletInjector"; "required": false; }; "ngComponentOutletContent": { "alias": "ngComponentOutletContent"; "required": false; }; "ngComponentOutletNgModule": { "alias": "ngComponentOutletNgModule"; "required": false; }; "ngComponentOutletNgModuleFactory": { "alias": "ngComponentOutletNgModuleFactory"; "required": false; }; }, {}, never, never, true, never>;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<NgComponentOutlet, never>;
 }
@@ -517,7 +520,7 @@ export class NgComponentOutlet implements OnChanges, OnDestroy {
 class NgForOf<T, U extends NgIterable<T> = NgIterable<T>> implements DoCheck {
     constructor(_viewContainer: ViewContainerRef, _template: TemplateRef<NgForOfContext<T, U>>, _differs: IterableDiffers);
     ngDoCheck(): void;
-    set ngForOf(ngForOf: U & NgIterable<T> | undefined | null);
+    set ngForOf(ngForOf: (U & NgIterable<T>) | undefined | null);
     set ngForTemplate(value: TemplateRef<NgForOfContext<T, U>>);
     set ngForTrackBy(fn: TrackByFunction<T>);
     // (undocumented)
@@ -613,6 +616,10 @@ export class NgOptimizedImage implements OnInit, OnChanges, OnDestroy {
     // (undocumented)
     static ngAcceptInputType_height: unknown;
     // (undocumented)
+    static ngAcceptInputType_ngSrc: string | i0.ɵSafeValue;
+    // (undocumented)
+    static ngAcceptInputType_placeholder: boolean | string;
+    // (undocumented)
     static ngAcceptInputType_priority: unknown;
     // (undocumented)
     static ngAcceptInputType_width: unknown;
@@ -624,11 +631,13 @@ export class NgOptimizedImage implements OnInit, OnChanges, OnDestroy {
     ngOnInit(): void;
     ngSrc: string;
     ngSrcset: string;
+    placeholder?: string | boolean;
+    placeholderConfig?: ImagePlaceholderConfig;
     priority: boolean;
     sizes?: string;
     width: number | undefined;
     // (undocumented)
-    static ɵdir: i0.ɵɵDirectiveDeclaration<NgOptimizedImage, "img[ngSrc]", never, { "ngSrc": { "alias": "ngSrc"; "required": true; }; "ngSrcset": { "alias": "ngSrcset"; "required": false; }; "sizes": { "alias": "sizes"; "required": false; }; "width": { "alias": "width"; "required": false; }; "height": { "alias": "height"; "required": false; }; "loading": { "alias": "loading"; "required": false; }; "priority": { "alias": "priority"; "required": false; }; "loaderParams": { "alias": "loaderParams"; "required": false; }; "disableOptimizedSrcset": { "alias": "disableOptimizedSrcset"; "required": false; }; "fill": { "alias": "fill"; "required": false; }; "src": { "alias": "src"; "required": false; }; "srcset": { "alias": "srcset"; "required": false; }; }, {}, never, never, true, never>;
+    static ɵdir: i0.ɵɵDirectiveDeclaration<NgOptimizedImage, "img[ngSrc]", never, { "ngSrc": { "alias": "ngSrc"; "required": true; }; "ngSrcset": { "alias": "ngSrcset"; "required": false; }; "sizes": { "alias": "sizes"; "required": false; }; "width": { "alias": "width"; "required": false; }; "height": { "alias": "height"; "required": false; }; "loading": { "alias": "loading"; "required": false; }; "priority": { "alias": "priority"; "required": false; }; "loaderParams": { "alias": "loaderParams"; "required": false; }; "disableOptimizedSrcset": { "alias": "disableOptimizedSrcset"; "required": false; }; "fill": { "alias": "fill"; "required": false; }; "placeholder": { "alias": "placeholder"; "required": false; }; "placeholderConfig": { "alias": "placeholderConfig"; "required": false; }; "src": { "alias": "src"; "required": false; }; "srcset": { "alias": "srcset"; "required": false; }; }, {}, never, never, true, never>;
     // (undocumented)
     static ɵfac: i0.ɵɵFactoryDeclaration<NgOptimizedImage, never>;
 }
@@ -729,22 +738,25 @@ export enum NumberFormatStyle {
 }
 
 // @public
-export enum NumberSymbol {
-    CurrencyDecimal = 12,
-    CurrencyGroup = 13,
-    Decimal = 0,
-    Exponential = 6,
-    Group = 1,
-    Infinity = 9,
-    List = 2,
-    MinusSign = 5,
-    NaN = 10,
-    PercentSign = 3,
-    PerMille = 8,
-    PlusSign = 4,
-    SuperscriptingExponent = 7,
-    TimeSeparator = 11
-}
+export const NumberSymbol: {
+    readonly Decimal: 0;
+    readonly Group: 1;
+    readonly List: 2;
+    readonly PercentSign: 3;
+    readonly PlusSign: 4;
+    readonly MinusSign: 5;
+    readonly Exponential: 6;
+    readonly SuperscriptingExponent: 7;
+    readonly PerMille: 8;
+    readonly Infinity: 9;
+    readonly NaN: 10;
+    readonly TimeSeparator: 11;
+    readonly CurrencyDecimal: 12;
+    readonly CurrencyGroup: 13;
+};
+
+// @public (undocumented)
+export type NumberSymbol = (typeof NumberSymbol)[keyof typeof NumberSymbol];
 
 // @public
 export class PathLocationStrategy extends LocationStrategy implements OnDestroy {
@@ -873,6 +885,9 @@ export const provideImageKitLoader: (path: string) => Provider[];
 
 // @public
 export const provideImgixLoader: (path: string) => Provider[];
+
+// @public
+export function provideNetlifyLoader(path?: string): Provider[];
 
 // @public
 export function registerLocaleData(data: any, localeId?: string | any, extraData?: any): void;

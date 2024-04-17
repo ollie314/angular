@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 
-import {Directive, EventEmitter, forwardRef, Host, Inject, Input, OnChanges, OnDestroy, Optional, Output, Provider, Self, SimpleChanges, SkipSelf} from '@angular/core';
+import {Directive, EventEmitter, forwardRef, Host, Inject, Input, OnChanges, OnDestroy, Optional, Output, Provider, Self, SimpleChanges, SkipSelf, ɵWritable as Writable} from '@angular/core';
 
 import {FormControl} from '../../model/form_control';
 import {NG_ASYNC_VALIDATORS, NG_VALIDATORS} from '../../validators';
@@ -32,7 +32,7 @@ const controlNameBinding: Provider = {
  * Syncs a `FormControl` in an existing `FormGroup` to a form control
  * element by name.
  *
- * @see [Reactive Forms Guide](guide/reactive-forms)
+ * @see [Reactive Forms Guide](guide/forms/reactive-forms)
  * @see {@link FormControl}
  * @see {@link AbstractControl}
  *
@@ -55,8 +55,6 @@ const controlNameBinding: Provider = {
  * Support for using the `ngModel` input property and `ngModelChange` event with reactive
  * form directives has been deprecated in Angular v6 and is scheduled for removal in
  * a future version of Angular.
- *
- * For details, see [Deprecated features](guide/deprecations#ngmodel-with-reactive-forms).
  *
  * @ngModule ReactiveFormsModule
  * @publicApi
@@ -203,7 +201,7 @@ export class FormControlName extends NgControl implements OnChanges, OnDestroy {
 
   private _setUpControl() {
     this._checkParentType();
-    (this as {control: FormControl}).control = this.formDirective.addControl(this);
+    (this as Writable<this>).control = this.formDirective.addControl(this);
     this._added = true;
   }
 }

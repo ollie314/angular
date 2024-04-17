@@ -284,7 +284,15 @@ export abstract class AbstractEmitterVisitor implements o.StatementVisitor, o.Ex
   }
 
   visitInvokeFunctionExpr(expr: o.InvokeFunctionExpr, ctx: EmitterVisitorContext): any {
+    const shouldParenthesize = expr.fn instanceof o.ArrowFunctionExpr;
+
+    if (shouldParenthesize) {
+      ctx.print(expr.fn, '(');
+    }
     expr.fn.visitExpression(this, ctx);
+    if (shouldParenthesize) {
+      ctx.print(expr.fn, ')');
+    }
     ctx.print(expr, `(`);
     this.visitAllExpressions(expr.args, ctx, ',');
     ctx.print(expr, `)`);
@@ -355,12 +363,19 @@ export abstract class AbstractEmitterVisitor implements o.StatementVisitor, o.Ex
     ctx.print(ast, `)`);
     return null;
   }
+
+
+  visitDynamicImportExpr(ast: o.DynamicImportExpr, ctx: EmitterVisitorContext) {
+    ctx.print(ast, `import(${ast.url})`);
+  }
+
   visitNotExpr(ast: o.NotExpr, ctx: EmitterVisitorContext): any {
     ctx.print(ast, '!');
     ast.condition.visitExpression(this, ctx);
     return null;
   }
   abstract visitFunctionExpr(ast: o.FunctionExpr, ctx: EmitterVisitorContext): any;
+  abstract visitArrowFunctionExpr(ast: o.ArrowFunctionExpr, context: any): any;
   abstract visitDeclareFunctionStmt(stmt: o.DeclareFunctionStmt, context: any): any;
 
   visitUnaryOperatorExpr(ast: o.UnaryOperatorExpr, ctx: EmitterVisitorContext): any {
@@ -399,6 +414,9 @@ export abstract class AbstractEmitterVisitor implements o.StatementVisitor, o.Ex
         break;
       case o.BinaryOperator.And:
         opStr = '&&';
+        break;
+      case o.BinaryOperator.BitwiseOr:
+        opStr = '|';
         break;
       case o.BinaryOperator.BitwiseAnd:
         opStr = '&';

@@ -125,6 +125,7 @@ export enum BinaryOperator {
   Modulo,
   And,
   Or,
+  BitwiseOr,
   BitwiseAnd,
   Lower,
   LowerEquals,
@@ -238,6 +239,10 @@ export abstract class Expression {
   }
   and(rhs: Expression, sourceSpan?: ParseSourceSpan|null): BinaryOperatorExpr {
     return new BinaryOperatorExpr(BinaryOperator.And, this, rhs, null, sourceSpan);
+  }
+  bitwiseOr(rhs: Expression, sourceSpan?: ParseSourceSpan|null, parens: boolean = true):
+      BinaryOperatorExpr {
+    return new BinaryOperatorExpr(BinaryOperator.BitwiseOr, this, rhs, null, sourceSpan, parens);
   }
   bitwiseAnd(rhs: Expression, sourceSpan?: ParseSourceSpan|null, parens: boolean = true):
       BinaryOperatorExpr {
@@ -790,6 +795,27 @@ export class ConditionalExpr extends Expression {
   }
 }
 
+export class DynamicImportExpr extends Expression {
+  constructor(public url: string, sourceSpan?: ParseSourceSpan|null) {
+    super(null, sourceSpan);
+  }
+
+  override isEquivalent(e: Expression): boolean {
+    return e instanceof DynamicImportExpr && this.url === e.url;
+  }
+
+  override isConstant() {
+    return false;
+  }
+
+  override visitExpression(visitor: ExpressionVisitor, context: any): any {
+    return visitor.visitDynamicImportExpr(this, context);
+  }
+
+  override clone(): DynamicImportExpr {
+    return new DynamicImportExpr(this.url, this.sourceSpan);
+  }
+}
 
 export class NotExpr extends Expression {
   constructor(public condition: Expression, sourceSpan?: ParseSourceSpan|null) {
@@ -833,9 +859,9 @@ export class FunctionExpr extends Expression {
     super(type, sourceSpan);
   }
 
-  override isEquivalent(e: Expression): boolean {
-    return e instanceof FunctionExpr && areAllEquivalent(this.params, e.params) &&
-        areAllEquivalent(this.statements, e.statements);
+  override isEquivalent(e: Expression|Statement): boolean {
+    return (e instanceof FunctionExpr || e instanceof DeclareFunctionStmt) &&
+        areAllEquivalent(this.params, e.params) && areAllEquivalent(this.statements, e.statements);
   }
 
   override isConstant() {
@@ -855,6 +881,52 @@ export class FunctionExpr extends Expression {
     // TODO: Should we deep clone statements?
     return new FunctionExpr(
         this.params.map(p => p.clone()), this.statements, this.type, this.sourceSpan, this.name);
+  }
+}
+
+export class ArrowFunctionExpr extends Expression {
+  // Note that `body: Expression` represents `() => expr` whereas
+  // `body: Statement[]` represents `() => { expr }`.
+
+  constructor(
+      public params: FnParam[], public body: Expression|Statement[], type?: Type|null,
+      sourceSpan?: ParseSourceSpan|null) {
+    super(type, sourceSpan);
+  }
+
+  override isEquivalent(e: Expression): boolean {
+    if (!(e instanceof ArrowFunctionExpr) || !areAllEquivalent(this.params, e.params)) {
+      return false;
+    }
+
+    if (this.body instanceof Expression && e.body instanceof Expression) {
+      return this.body.isEquivalent(e.body);
+    }
+
+    if (Array.isArray(this.body) && Array.isArray(e.body)) {
+      return areAllEquivalent(this.body, e.body);
+    }
+
+    return false;
+  }
+
+  override isConstant(): boolean {
+    return false;
+  }
+
+  override visitExpression(visitor: ExpressionVisitor, context: any) {
+    return visitor.visitArrowFunctionExpr(this, context);
+  }
+
+  override clone(): Expression {
+    // TODO: Should we deep clone statements?
+    return new ArrowFunctionExpr(
+        this.params.map(p => p.clone()), Array.isArray(this.body) ? this.body : this.body.clone(),
+        this.type, this.sourceSpan);
+  }
+
+  toDeclStmt(name: string, modifiers?: StmtModifier): DeclareVarStmt {
+    return new DeclareVarStmt(name, this, INFERRED_TYPE, modifiers, this.sourceSpan);
   }
 }
 
@@ -975,7 +1047,7 @@ export class ReadKeyExpr extends Expression {
   }
 
   override clone(): ReadKeyExpr {
-    return new ReadKeyExpr(this.receiver, this.index.clone(), this.type, this.sourceSpan);
+    return new ReadKeyExpr(this.receiver.clone(), this.index.clone(), this.type, this.sourceSpan);
   }
 }
 
@@ -1076,6 +1148,7 @@ export interface ExpressionVisitor {
   visitLocalizedString(ast: LocalizedString, context: any): any;
   visitExternalExpr(ast: ExternalExpr, context: any): any;
   visitConditionalExpr(ast: ConditionalExpr, context: any): any;
+  visitDynamicImportExpr(ast: DynamicImportExpr, context: any): any;
   visitNotExpr(ast: NotExpr, context: any): any;
   visitFunctionExpr(ast: FunctionExpr, context: any): any;
   visitUnaryOperatorExpr(ast: UnaryOperatorExpr, context: any): any;
@@ -1087,6 +1160,7 @@ export interface ExpressionVisitor {
   visitCommaExpr(ast: CommaExpr, context: any): any;
   visitWrappedNodeExpr(ast: WrappedNodeExpr<any>, context: any): any;
   visitTypeofExpr(ast: TypeofExpr, context: any): any;
+  visitArrowFunctionExpr(ast: ArrowFunctionExpr, context: any): any;
 }
 
 export const NULL_EXPR = new LiteralExpr(null, null, null);
@@ -1281,6 +1355,9 @@ export class RecursiveAstVisitor implements StatementVisitor, ExpressionVisitor 
     ast.value.visitExpression(this, context);
     return this.visitExpression(ast, context);
   }
+  visitDynamicImportExpr(ast: DynamicImportExpr, context: any) {
+    return this.visitExpression(ast, context);
+  }
   visitInvokeFunctionExpr(ast: InvokeFunctionExpr, context: any): any {
     ast.fn.visitExpression(this, context);
     this.visitAllExpressions(ast.args, context);
@@ -1320,6 +1397,15 @@ export class RecursiveAstVisitor implements StatementVisitor, ExpressionVisitor 
   }
   visitFunctionExpr(ast: FunctionExpr, context: any): any {
     this.visitAllStatements(ast.statements, context);
+    return this.visitExpression(ast, context);
+  }
+  visitArrowFunctionExpr(ast: ArrowFunctionExpr, context: any): any {
+    if (Array.isArray(ast.body)) {
+      this.visitAllStatements(ast.body, context);
+    } else {
+      this.visitExpression(ast.body, context);
+    }
+
     return this.visitExpression(ast, context);
   }
   visitUnaryOperatorExpr(ast: UnaryOperatorExpr, context: any): any {
@@ -1456,6 +1542,12 @@ export function fn(
     params: FnParam[], body: Statement[], type?: Type|null, sourceSpan?: ParseSourceSpan|null,
     name?: string|null): FunctionExpr {
   return new FunctionExpr(params, body, type, sourceSpan, name);
+}
+
+export function arrowFn(
+    params: FnParam[], body: Expression|Statement[], type?: Type|null,
+    sourceSpan?: ParseSourceSpan|null) {
+  return new ArrowFunctionExpr(params, body, type, sourceSpan);
 }
 
 export function ifStmt(

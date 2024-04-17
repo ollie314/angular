@@ -36,8 +36,8 @@ export interface NgModule {
    * The set of injectable objects that are available in the injector
    * of this module.
    *
-   * @see [Dependency Injection guide](guide/dependency-injection)
-   * @see [NgModule guide](guide/providers)
+   * @see [Dependency Injection guide](guide/di/dependency-injection
+   * @see [NgModule guide](guide/ngmodules/providers)
    *
    * @usageNotes
    *
@@ -82,7 +82,7 @@ export interface NgModule {
   providers?: Array<Provider|EnvironmentProviders>;
 
   /**
-   * The set of components, directives, and pipes ([declarables](guide/glossary#declarable))
+   * The set of components, directives, and pipes (declarables
    * that belong to this module.
    *
    * @usageNotes
@@ -110,7 +110,7 @@ export interface NgModule {
   declarations?: Array<Type<any>|any[]>;
 
   /**
-   * The set of NgModules whose exported [declarables](guide/glossary#declarable)
+   * The set of NgModules whose exported declarables
    * are available to templates in this module.
    *
    * @usageNotes

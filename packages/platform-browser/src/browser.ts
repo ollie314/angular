@@ -35,7 +35,7 @@ export {ApplicationConfig};
 /**
  * Bootstraps an instance of an Angular application and renders a standalone component as the
  * application's root component. More information about standalone components can be found in [this
- * guide](guide/standalone-components).
+ * guide](guide/components/importing).
  *
  * @usageNotes
  * The root component passed into this function *must* be a standalone one (should have the
@@ -231,7 +231,7 @@ export class BrowserModule {
               providersAlreadyPresent: boolean|null) {
     if ((typeof ngDevMode === 'undefined' || ngDevMode) && providersAlreadyPresent) {
       throw new RuntimeError(
-          RuntimeErrorCode.BROWER_MODULE_ALREADY_LOADED,
+          RuntimeErrorCode.BROWSER_MODULE_ALREADY_LOADED,
           `Providers from the \`BrowserModule\` have already been loaded. If you need access ` +
               `to common directives such as NgIf and NgFor, import the \`CommonModule\` instead.`);
     }

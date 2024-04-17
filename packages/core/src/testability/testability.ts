@@ -35,16 +35,12 @@ export interface TaskData {
   isPeriodic?: boolean;
 }
 
-// Angular internal, not intended for public API.
-export type DoneCallback = (didWork: boolean, tasks?: PendingMacrotask[]) => void;
-export type UpdateCallback = (tasks: PendingMacrotask[]) => boolean;
-
 interface WaitCallback {
   // Needs to be 'any' - setTimeout returns a number according to ES6, but
   // on NodeJS it returns a Timer.
   timeoutId: any;
-  doneCb: DoneCallback;
-  updateCb?: UpdateCallback;
+  doneCb: Function;
+  updateCb?: Function;
 }
 
 /**
@@ -85,15 +81,7 @@ export const TESTABILITY_GETTER = new InjectionToken<GetTestability>('');
  */
 @Injectable()
 export class Testability implements PublicTestability {
-  private _pendingCount: number = 0;
   private _isZoneStable: boolean = true;
-  /**
-   * Whether any work was done since the last 'whenStable' callback. This is
-   * useful to detect if this could have potentially destabilized another
-   * component while it is stabilizing.
-   * @internal
-   */
-  private _didWork: boolean = false;
   private _callbacks: WaitCallback[] = [];
 
   private taskTrackingZone: {macroTasks: Task[]}|null = null;
@@ -117,7 +105,6 @@ export class Testability implements PublicTestability {
   private _watchAngularEvents(): void {
     this._ngZone.onUnstable.subscribe({
       next: () => {
-        this._didWork = true;
         this._isZoneStable = false;
       }
     });
@@ -136,33 +123,10 @@ export class Testability implements PublicTestability {
   }
 
   /**
-   * Increases the number of pending request
-   * @deprecated pending requests are now tracked with zones.
-   */
-  increasePendingRequestCount(): number {
-    this._pendingCount += 1;
-    this._didWork = true;
-    return this._pendingCount;
-  }
-
-  /**
-   * Decreases the number of pending request
-   * @deprecated pending requests are now tracked with zones
-   */
-  decreasePendingRequestCount(): number {
-    this._pendingCount -= 1;
-    if (this._pendingCount < 0) {
-      throw new Error('pending async requests below zero');
-    }
-    this._runCallbacksIfReady();
-    return this._pendingCount;
-  }
-
-  /**
    * Whether an associated application is stable
    */
   isStable(): boolean {
-    return this._isZoneStable && this._pendingCount === 0 && !this._ngZone.hasPendingMacrotasks;
+    return this._isZoneStable && !this._ngZone.hasPendingMacrotasks;
   }
 
   private _runCallbacksIfReady(): void {
@@ -172,9 +136,8 @@ export class Testability implements PublicTestability {
         while (this._callbacks.length !== 0) {
           let cb = this._callbacks.pop()!;
           clearTimeout(cb.timeoutId);
-          cb.doneCb(this._didWork);
+          cb.doneCb();
         }
-        this._didWork = false;
       });
     } else {
       // Still not stable, send updates.
@@ -187,8 +150,6 @@ export class Testability implements PublicTestability {
 
         return true;
       });
-
-      this._didWork = true;
     }
   }
 
@@ -209,12 +170,12 @@ export class Testability implements PublicTestability {
     });
   }
 
-  private addCallback(cb: DoneCallback, timeout?: number, updateCb?: UpdateCallback) {
+  private addCallback(cb: Function, timeout?: number, updateCb?: Function) {
     let timeoutId: any = -1;
     if (timeout && timeout > 0) {
       timeoutId = setTimeout(() => {
         this._callbacks = this._callbacks.filter((cb) => cb.timeoutId !== timeoutId);
-        cb(this._didWork, this.getPendingTasks());
+        cb();
       }, timeout);
     }
     this._callbacks.push(<WaitCallback>{doneCb: cb, timeoutId: timeoutId, updateCb: updateCb});
@@ -238,18 +199,10 @@ export class Testability implements PublicTestability {
           'Task tracking zone is required when passing an update callback to ' +
           'whenStable(). Is "zone.js/plugins/task-tracking" loaded?');
     }
-    // These arguments are 'Function' above to keep the public API simple.
-    this.addCallback(doneCb as DoneCallback, timeout, updateCb as UpdateCallback);
+    this.addCallback(doneCb, timeout, updateCb);
     this._runCallbacksIfReady();
   }
 
-  /**
-   * Get the number of pending requests
-   * @deprecated pending requests are now tracked with zones
-   */
-  getPendingRequestCount(): number {
-    return this._pendingCount;
-  }
   /**
    * Registers an application with a testability hook so that it can be tracked.
    * @param token token of application, root element

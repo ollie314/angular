@@ -21,8 +21,8 @@ import {ViewRef} from '../render3/view_ref';
  * Use the methods to add and remove views from the tree, initiate change-detection,
  * and explicitly mark views as _dirty_, meaning that they have changed and need to be re-rendered.
  *
- * @see [Using change detection hooks](guide/lifecycle-hooks#using-change-detection-hooks)
- * @see [Defining custom change detection](guide/lifecycle-hooks#defining-custom-change-detection)
+ * @see [Using change detection hooks](guide/components/lifecycle#using-change-detection-hooks)
+ * @see [Defining custom change detection](guide/components/lifecycle#defining-custom-change-detection)
  *
  * @usageNotes
  *
@@ -104,6 +104,10 @@ export abstract class ChangeDetectorRef {
    *
    * Use in development mode to verify that running change detection doesn't introduce
    * other changes. Calling it in production mode is a noop.
+   *
+   * @deprecated This is a test-only API that does not have a place in production interface.
+   * `checkNoChanges` is already part of an `ApplicationRef` tick when the app is running in dev
+   * mode. For more granular `checkNoChanges` validation, use `ComponentFixture`.
    */
   abstract checkNoChanges(): void;
 

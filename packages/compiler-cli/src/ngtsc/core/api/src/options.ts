@@ -55,6 +55,33 @@ export interface InternalOptions {
    * @internal
    */
   supportTestBed?: boolean;
+
+  /**
+   * Enables the usage of the JIT compiler in combination with AOT compiled code by emitting
+   * selector scope information for NgModules.
+   *
+   * This is only intended to be used by the Angular CLI.
+   * Defaults to true if not specified.
+   *
+   * @internal
+   */
+  supportJitMode?: boolean;
+
+  /**
+   * Whether block syntax is enabled in the compiler. Defaults to true.
+   * Used in the language service to disable the new syntax for projects that aren't on v17.
+   *
+   * @internal
+   */
+  _enableBlockSyntax?: boolean;
+
+  /**
+   * Detected version of `@angular/core` in the workspace. Used by the
+   * compiler to adjust the output depending on the available symbols.
+   *
+   * @internal
+   */
+  _angularCoreVersion?: string;
 }
 
 /**

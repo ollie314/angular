@@ -6,7 +6,7 @@
  * found in the LICENSE file at https://angular.io/license
  */
 import {AttributeMarker, SelectorFlags} from '@angular/compiler/src/core';
-import {QueryFlags} from '@angular/compiler/src/render3/view/compiler';
+import {QueryFlags} from '@angular/compiler/src/render3/view/query_generation';
 
 import {i18nIcuMsg, i18nMsg, i18nMsgWithPostprocess, Options, Placeholder, resetMessageIndex} from './i18n_helpers';
 
@@ -90,7 +90,7 @@ function parseOptions(str: string): Options {
   }
 
   // Validate `original_code`.
-  const original = obj?.original_code;
+  const original = obj?.['original_code'];
   if (typeof original !== 'undefined' && typeof original !== 'object') {
     throw new Error(
         `Expected an i18n options object with \`original_code\`, as a nested object, but got ${
@@ -203,7 +203,7 @@ function flagUnion(pattern: RegExp, getFlagValue: (...match: string[]) => number
   return [
     // Match at least one occurrence of the pattern, optionally followed by more occurrences
     // separated by a pipe.
-    new RegExp(pattern.source + '(?:\s*\\\|\s*' + pattern.source + ')*', 'g'),
+    new RegExp(pattern.source + '(?:s*\\\|s*' + pattern.source + ')*', 'g'),
     (match: string) => {
       // Replace all matches with the union of the individually matched flags.
       return String(match.split('|')

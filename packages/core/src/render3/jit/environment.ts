@@ -20,7 +20,7 @@ import * as r3 from '../index';
  *
  * This should be kept up to date with the public exports of @angular/core.
  */
-export const angularCoreEnv: {[name: string]: Function} =
+export const angularCoreEnv: {[name: string]: unknown} =
     (() => ({
        'ɵɵattribute': r3.ɵɵattribute,
        'ɵɵattributeInterpolate1': r3.ɵɵattributeInterpolate1,
@@ -101,9 +101,12 @@ export const angularCoreEnv: {[name: string]: Function} =
        'ɵɵpropertyInterpolateV': r3.ɵɵpropertyInterpolateV,
        'ɵɵpipe': r3.ɵɵpipe,
        'ɵɵqueryRefresh': r3.ɵɵqueryRefresh,
+       'ɵɵqueryAdvance': r3.ɵɵqueryAdvance,
        'ɵɵviewQuery': r3.ɵɵviewQuery,
+       'ɵɵviewQuerySignal': r3.ɵɵviewQuerySignal,
        'ɵɵloadQuery': r3.ɵɵloadQuery,
        'ɵɵcontentQuery': r3.ɵɵcontentQuery,
+       'ɵɵcontentQuerySignal': r3.ɵɵcontentQuerySignal,
        'ɵɵreference': r3.ɵɵreference,
        'ɵɵclassMap': r3.ɵɵclassMap,
        'ɵɵclassMapInterpolate1': r3.ɵɵclassMapInterpolate1,
@@ -138,6 +141,28 @@ export const angularCoreEnv: {[name: string]: Function} =
        'ɵɵclassProp': r3.ɵɵclassProp,
        'ɵɵadvance': r3.ɵɵadvance,
        'ɵɵtemplate': r3.ɵɵtemplate,
+       'ɵɵconditional': r3.ɵɵconditional,
+       'ɵɵdefer': r3.ɵɵdefer,
+       'ɵɵdeferWhen': r3.ɵɵdeferWhen,
+       'ɵɵdeferOnIdle': r3.ɵɵdeferOnIdle,
+       'ɵɵdeferOnImmediate': r3.ɵɵdeferOnImmediate,
+       'ɵɵdeferOnTimer': r3.ɵɵdeferOnTimer,
+       'ɵɵdeferOnHover': r3.ɵɵdeferOnHover,
+       'ɵɵdeferOnInteraction': r3.ɵɵdeferOnInteraction,
+       'ɵɵdeferOnViewport': r3.ɵɵdeferOnViewport,
+       'ɵɵdeferPrefetchWhen': r3.ɵɵdeferPrefetchWhen,
+       'ɵɵdeferPrefetchOnIdle': r3.ɵɵdeferPrefetchOnIdle,
+       'ɵɵdeferPrefetchOnImmediate': r3.ɵɵdeferPrefetchOnImmediate,
+       'ɵɵdeferPrefetchOnTimer': r3.ɵɵdeferPrefetchOnTimer,
+       'ɵɵdeferPrefetchOnHover': r3.ɵɵdeferPrefetchOnHover,
+       'ɵɵdeferPrefetchOnInteraction': r3.ɵɵdeferPrefetchOnInteraction,
+       'ɵɵdeferPrefetchOnViewport': r3.ɵɵdeferPrefetchOnViewport,
+       'ɵɵdeferEnableTimerScheduling': r3.ɵɵdeferEnableTimerScheduling,
+       'ɵɵrepeater': r3.ɵɵrepeater,
+       'ɵɵrepeaterCreate': r3.ɵɵrepeaterCreate,
+       'ɵɵrepeaterTrackByIndex': r3.ɵɵrepeaterTrackByIndex,
+       'ɵɵrepeaterTrackByIdentity': r3.ɵɵrepeaterTrackByIdentity,
+       'ɵɵcomponentInstance': r3.ɵɵcomponentInstance,
        'ɵɵtext': r3.ɵɵtext,
        'ɵɵtextInterpolate': r3.ɵɵtextInterpolate,
        'ɵɵtextInterpolate1': r3.ɵɵtextInterpolate1,
@@ -162,6 +187,8 @@ export const angularCoreEnv: {[name: string]: Function} =
        'ɵɵsetComponentScope': r3.ɵɵsetComponentScope,
        'ɵɵsetNgModuleScope': r3.ɵɵsetNgModuleScope,
        'ɵɵregisterNgModuleType': registerNgModuleType,
+       'ɵɵgetComponentDepsFactory': r3.ɵɵgetComponentDepsFactory,
+       'ɵsetClassDebugInfo': r3.ɵsetClassDebugInfo,
 
        'ɵɵsanitizeHtml': sanitization.ɵɵsanitizeHtml,
        'ɵɵsanitizeStyle': sanitization.ɵɵsanitizeStyle,
@@ -175,4 +202,8 @@ export const angularCoreEnv: {[name: string]: Function} =
 
        'forwardRef': forwardRef,
        'resolveForwardRef': resolveForwardRef,
+
+       'ɵɵtwoWayProperty': r3.ɵɵtwoWayProperty,
+       'ɵɵtwoWayBindingSet': r3.ɵɵtwoWayBindingSet,
+       'ɵɵtwoWayListener': r3.ɵɵtwoWayListener,
      }))();
